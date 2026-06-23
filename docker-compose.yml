@@ -6,9 +6,6 @@
 #   Subir:    docker compose up --build
 #   Acessar:  http://localhost:3000
 #   Resetar:  docker compose down -v   (apaga o banco e re-semeia)
-#
-# Obs.: a pasta backend/ (Fastify) é uma alternativa standalone OPCIONAL e
-#       NÃO é usada aqui nem na Vercel — a API roda integrada no Next.js.
 # =====================================================================
 
 services:
@@ -32,7 +29,7 @@ services:
       retries: 10
 
   frontend:
-    build: ./frontend
+    build: .
     container_name: teamff_frontend
     environment:
       # Route Handlers (server-side) conectam no Postgres do compose.

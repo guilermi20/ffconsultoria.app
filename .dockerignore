@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+npm-debug.log
+.env.local
+# arquivos fora do app (não precisam ir para a imagem)
+db
+docker-compose.yml
+README.md
+.gitattributes
+.gitignore

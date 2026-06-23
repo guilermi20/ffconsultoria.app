@@ -28,15 +28,12 @@ postgres://USER:SENHA@ep-xxxx-pooler.sa-east-1.aws.neon.tech/teamff?sslmode=requ
 
 ### 2. Importe o repositório na Vercel
 - **New Project → Import** este repositório.
-- **Deixe o Root Directory no padrão (`./`).** O [`vercel.json`](vercel.json) na raiz já
-  direciona o build para o app Next em `frontend/` (ignorando `db/` e `backend/`).
-- Framework: **Next.js** (detectado automaticamente pelo `vercel.json`).
+- **Framework:** Next.js (detectado automaticamente — o app está na **raiz**).
+- **Root Directory:** deixe no padrão (`./`). Não precisa de `vercel.json`.
 
-> **Por que `vercel.json`?** O repositório tem mais de uma pasta (`frontend/`, `backend/`,
-> `db/`). O `vercel.json` (campo `builds`) diz à Vercel **qual** app construir — sem ele,
-> a Vercel não saberia que o app está em `frontend/`.
->
-> _Alternativa sem `vercel.json`:_ remova-o e, no painel, defina **Root Directory = `frontend`**.
+> ✅ O repositório é um **único app Next.js na raiz** (sem subpastas de serviço), então
+> a Vercel reconhece um projeto só. Se o seletor de _Application Preset_ aparecer,
+> escolha **Next.js** (não “Services”).
 
 ### 3. Configure a variável de ambiente
 Em **Settings → Environment Variables**, adicione:
@@ -60,7 +57,6 @@ Duas opções:
 **b) Pelo terminal** (a partir da máquina local, apontando para o banco cloud):
 
 ```bash
-cd frontend
 # Windows PowerShell:  $env:DATABASE_URL="postgres://...sslmode=require"
 # bash:                export DATABASE_URL="postgres://...sslmode=require"
 npm install
@@ -91,9 +87,9 @@ Requer **Node 20+** e um **PostgreSQL** local.
 ```bash
 # 1) crie o banco e carregue os dados
 createdb teamff
-cd frontend && cp .env.local.example .env.local   # ajuste DATABASE_URL
+cp .env.local.example .env.local   # ajuste DATABASE_URL
 npm install
-npm run db:setup                                   # roda schema.sql + seed.sql
+npm run db:setup                   # roda schema.sql + seed.sql
 
 # 2) suba o app (UI + API)
 npm run dev                                         # http://localhost:3000
@@ -145,26 +141,27 @@ Senha fictícia (não há tela de login no demo): `teamff123` · coach: `coach@t
 
 ## 📁 Estrutura
 
+App **único Next.js na raiz** (deploy direto na Vercel, sem configuração extra):
+
 ```
 .
-├── vercel.json                 # aponta o build da Vercel para frontend/
+├── package.json                # app Next.js (raiz = root do projeto na Vercel)
+├── next.config.js
 ├── db/
 │   ├── schema.sql              # modelagem PostgreSQL (do documento)
 │   └── seed.sql                # dados de exemplo
-├── frontend/                   # ⭐ app deployado na Vercel (via vercel.json)
-│   ├── scripts/setup-db.mjs    # carrega schema + seed no DATABASE_URL
-│   └── src/
-│       ├── app/                # páginas + app/api/* (Route Handlers)
-│       ├── server/             # db.ts (pool serverless) + queries.ts
-│       ├── components/         # ShareableCard, Brand
-│       └── lib/                # api client (fetch relativo) + format
-├── docker-compose.yml          # db + frontend (espelha a Vercel)
-└── backend/                    # ⚠️ Fastify standalone — OPCIONAL/legado, não usado
+├── scripts/setup-db.mjs        # carrega schema + seed no DATABASE_URL
+├── src/
+│   ├── app/                    # páginas + app/api/* (Route Handlers = a API)
+│   ├── server/                 # db.ts (pool serverless) + queries.ts
+│   ├── components/             # ShareableCard, Brand
+│   └── lib/                    # api client (fetch relativo) + format
+└── docker-compose.yml          # db + app (espelha a Vercel localmente)
 ```
 
-> ⚠️ A pasta **`backend/`** (Fastify) foi a 1ª versão como microsserviço separado.
-> Ela **não é usada** na Vercel nem no `docker compose` atuais — a API agora roda
-> integrada no Next.js (`app/api/*`). Mantida apenas como referência.
+> ℹ️ A versão inicial tinha um backend Fastify separado em `backend/`. Ele foi
+> **removido** (a API agora roda integrada no Next.js em `app/api/*`) para a Vercel
+> reconhecer um único serviço. O código continua no histórico do git, se precisar.
 
 > ⚠️ Ambiente de **demonstração**: autenticação, processamento de mídia real e
 > hardening de produção foram simplificados para foco na visualização do produto.

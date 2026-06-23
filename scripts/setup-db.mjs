@@ -20,12 +20,12 @@ try {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbDir = resolve(__dirname, "../../db"); // repo/db
+const dbDir = resolve(__dirname, "../db"); // repo/db (scripts/ está na raiz)
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 if (!connectionString) {
   console.error(
-    "❌ Defina DATABASE_URL (em frontend/.env.local ou no ambiente).\n" +
+    "❌ Defina DATABASE_URL (em .env.local ou no ambiente).\n" +
       "   Ex.: postgres://user:pass@host/db?sslmode=require"
   );
   process.exit(1);
