@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env*.local
+
+# Logs / SO
+*.log
+.DS_Store
+Thumbs.db
