@@ -13,22 +13,22 @@ export default function AlunoChooser() {
       <div className="flex items-center justify-between">
         <Wordmark small />
         <Link
-          href="/"
+          href="/coach"
           className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-white"
         >
-          ← Início
+          ← Painel
         </Link>
       </div>
 
       <div className="mt-10">
         <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-neutral-500">
-          Área do Aluno · Demo
+          Pré-visualizar como aluno
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight">
-          Entrar como…
+          Área do Aluno
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Escolha um aluno para visualizar a experiência mobile.
+          Coach: escolha um aluno para ver a experiência mobile dele.
         </p>
       </div>
 

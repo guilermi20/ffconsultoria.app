@@ -1,7 +1,7 @@
 {
-  "name": "teamff-frontend",
+  "name": "teamff-consultoria",
   "version": "1.0.0",
-  "description": "TEAM FF | CONSULTORIA — Frontend (Next.js 14 App Router + Tailwind)",
+  "description": "TEAM FF | CONSULTORIA — App Next.js 14 (UI + API + Auth + Postgres)",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,13 +10,16 @@
     "db:setup": "node scripts/setup-db.mjs"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "html-to-image": "^1.11.11",
+    "jose": "^5.9.6",
     "next": "14.2.35",
     "pg": "^8.12.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.14.10",
     "@types/pg": "^8.11.6",
     "@types/react": "^18.3.3",

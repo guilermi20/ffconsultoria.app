@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useApi, type CoachOverview, type StudentSummary } from "@/lib/api";
 import { Wordmark } from "@/components/Brand";
+import AuthControls from "@/components/AuthControls";
 import { fmtRelative, fmtWeight, initials, rpeTone } from "@/lib/format";
 
 function Kpi({
@@ -53,12 +54,7 @@ export default function CoachDashboard() {
               Painel do Consultor
             </span>
           </div>
-          <Link
-            href="/"
-            className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-white"
-          >
-            ← Início
-          </Link>
+          <AuthControls />
         </div>
       </header>
 

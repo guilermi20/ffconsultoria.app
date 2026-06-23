@@ -40,7 +40,7 @@ export default function HomePage() {
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">
             <Link
-              href="/coach"
+              href="/login?next=/coach"
               className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 p-7 transition hover:border-neutral-600"
             >
               <div>
@@ -62,7 +62,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/aluno"
+              href="/login"
               className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-neutral-800 bg-white p-7 text-black transition hover:border-white"
             >
               <div>

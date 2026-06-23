@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useApi, type StudentDetail } from "@/lib/api";
 import { Wordmark } from "@/components/Brand";
+import AuthControls from "@/components/AuthControls";
 import {
   fmtDate,
   fmtNumber,
@@ -23,12 +24,7 @@ export default function AlunoHome({ params }: { params: { id: string } }) {
     <main className="mx-auto min-h-screen max-w-md px-5 py-8">
       <div className="flex items-center justify-between">
         <Wordmark small />
-        <Link
-          href="/aluno"
-          className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-white"
-        >
-          Trocar aluno
-        </Link>
+        <AuthControls />
       </div>
 
       {loading && (

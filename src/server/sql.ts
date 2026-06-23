@@ -115,7 +115,7 @@ export const SEED_SQL = `-- ====================================================
 -- TEAM FF | CONSULTORIA  --  Seed de demonstração (dados de exemplo)
 -- Coach: Fábio Filho  |  6 alunos  |  planos, treinos, logs e vídeos
 -- Datas são relativas ao momento do seed (sempre "recentes" no demo).
--- Senha de todos (demo): "teamff123"  (hash abaixo é placeholder de demo)
+-- Senha de todos (demo): "teamff123"  (hash bcrypt real abaixo, login funciona)
 -- =====================================================================
 
 -- Idempotência: limpa antes de semear (ordem respeita FKs)
@@ -126,13 +126,13 @@ TRUNCATE exercise_feedbacks, workout_logs, workout_exercises, workouts,
 -- USERS
 -- ---------------------------------------------------------------------
 INSERT INTO users (id, name, email, password_hash, role, instagram_handle, created_at) VALUES
-('aaaa0000-0000-0000-0000-000000000001', 'Fábio Filho',  'coach@teamff.consultoria', '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'coach',   '@teamff.consultoria',  CURRENT_TIMESTAMP - INTERVAL '420 days'),
-('aaaa0000-0000-0000-0000-000000000011', 'Lucas Andrade','lucas.andrade@gmail.com',  '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@lucas.andrade',       CURRENT_TIMESTAMP - INTERVAL '210 days'),
-('aaaa0000-0000-0000-0000-000000000012', 'Marina Costa', 'marina.costa@gmail.com',   '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@marina.costafit',     CURRENT_TIMESTAMP - INTERVAL '165 days'),
-('aaaa0000-0000-0000-0000-000000000013', 'Rafael Mendes','rafa.mendes@outlook.com',  '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@rafa.hybrid',         CURRENT_TIMESTAMP - INTERVAL '120 days'),
-('aaaa0000-0000-0000-0000-000000000014', 'Juliana Rocha','juliana.rocha@gmail.com',  '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@ju.rocha',            CURRENT_TIMESTAMP - INTERVAL '54 days'),
-('aaaa0000-0000-0000-0000-000000000015', 'Bruno Tavares','bruno.tavares@gmail.com',  '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@brunotvrs',           CURRENT_TIMESTAMP - INTERVAL '300 days'),
-('aaaa0000-0000-0000-0000-000000000016', 'Carla Nunes',  'carla.nunes@gmail.com',    '$2b$10$DEMOhashDEMOhashDEMOhasOmZ0Kqf3vJ8jQ6yE2cV1aB3cD4eF5g', 'student', '@carlanunes.fit',      CURRENT_TIMESTAMP - INTERVAL '38 days');
+('aaaa0000-0000-0000-0000-000000000001', 'Fábio Filho',  'coach@teamff.consultoria', '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'coach',   '@teamff.consultoria',  CURRENT_TIMESTAMP - INTERVAL '420 days'),
+('aaaa0000-0000-0000-0000-000000000011', 'Lucas Andrade','lucas.andrade@gmail.com',  '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@lucas.andrade',       CURRENT_TIMESTAMP - INTERVAL '210 days'),
+('aaaa0000-0000-0000-0000-000000000012', 'Marina Costa', 'marina.costa@gmail.com',   '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@marina.costafit',     CURRENT_TIMESTAMP - INTERVAL '165 days'),
+('aaaa0000-0000-0000-0000-000000000013', 'Rafael Mendes','rafa.mendes@outlook.com',  '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@rafa.hybrid',         CURRENT_TIMESTAMP - INTERVAL '120 days'),
+('aaaa0000-0000-0000-0000-000000000014', 'Juliana Rocha','juliana.rocha@gmail.com',  '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@ju.rocha',            CURRENT_TIMESTAMP - INTERVAL '54 days'),
+('aaaa0000-0000-0000-0000-000000000015', 'Bruno Tavares','bruno.tavares@gmail.com',  '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@brunotvrs',           CURRENT_TIMESTAMP - INTERVAL '300 days'),
+('aaaa0000-0000-0000-0000-000000000016', 'Carla Nunes',  'carla.nunes@gmail.com',    '$2a$10$fGVdiU7Mv9zUlSaq6iNPQu6aWSb0khrugJ/pr76lug8BfrjglMUiC', 'student', '@carlanunes.fit',      CURRENT_TIMESTAMP - INTERVAL '38 days');
 
 -- ---------------------------------------------------------------------
 -- TRAINING PLANS  (um plano ativo por aluno; Lucas tem um antigo inativo)

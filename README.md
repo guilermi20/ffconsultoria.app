@@ -9,6 +9,8 @@ App **full-stack** seguindo o documento _Arquitetura Geral V2_, já populado com
 - **App único Next.js 14** (App Router) — UI + **API em `/api`** via Route Handlers.
 - **Tailwind CSS** — tema _All Black_ estrito.
 - **PostgreSQL serverless** (Neon / Vercel Postgres / Supabase) via `DATABASE_URL`.
+- **Autenticação** — login com `bcrypt` + sessão por cookie JWT (`jose`) + middleware
+  com controle de acesso por papel (coach / aluno).
 - **Storage:** stub de _Presigned URL_ (R2/S3) — contrato pronto, sem upload real no demo.
 
 > A API roda na **mesma origem** do front (sem CORS, sem URL para configurar).
@@ -41,6 +43,7 @@ Em **Settings → Environment Variables**, adicione:
 | Nome                    | Valor                                             |
 | ----------------------- | ------------------------------------------------- |
 | `DATABASE_URL`          | a connection string do passo 1                    |
+| `AUTH_SECRET`           | segredo do JWT _(opcional; recomendado em prod)_  |
 | `PUBLIC_MEDIA_BASE_URL` | `https://media.teamff.dev` _(opcional, stub)_     |
 
 > Não defina `NEXT_PUBLIC_API_URL` — a API é servida em `/api` na mesma origem.
@@ -97,14 +100,29 @@ npm run dev                                         # http://localhost:3000
 
 ---
 
+## 🔐 Login
+
+A plataforma exige autenticação. Página de **`/login`** (All Black) com atalhos de
+demonstração. **Senha de todos:** `teamff123`.
+
+| Papel | E-mail | Vai para |
+| ----- | ------ | -------- |
+| Coach | `coach@teamff.consultoria` | Painel do Consultor (`/coach`) |
+| Aluno | `lucas.andrade@gmail.com` (e os demais) | Sua Área do Aluno (`/aluno/<id>`) |
+
+O middleware protege as rotas: aluno não acessa o painel do coach, e só enxerga a
+própria área. Sair: botão no topo. _(Defina `AUTH_SECRET` na Vercel para endurecer o JWT.)_
+
+---
+
 ## 🎬 Roteiro de demonstração (para o cliente)
 
-1. **Home** (`/`) — identidade _All Black_ e os dois quadrantes.
+1. **Login** (`/login`) — toque em **Coach (Fábio)** → senha já preenchida → **Entrar**.
 2. **Painel do Consultor** (`/coach`) — KPIs, lista de alunos e **fila de vídeos**.
 3. **Detalhe do aluno** (_Lucas Andrade_ ou _Bruno Tavares_) — plano ativo, abra um treino
    registrado e **escreva um feedback de execução** num vídeo pendente → vira **✓ Revisado**.
-4. **Área do Aluno** (`/aluno`) — "entre" como aluno, veja o treino do dia, **registre cargas/RPE**
-   e **anexe um vídeo** (simulado).
+4. **Área do Aluno** — saia e entre como **Aluno — Lucas**: treino do dia, **registre cargas/RPE**
+   e **anexe um vídeo** (simulado). _(Como coach, dá para pré-visualizar em `/aluno`.)_
 5. **Card de Stories** — ao concluir, gere o **PNG estilo Strava com fundo transparente**.
 
 > 💡 Melhores alunos para a revisão de vídeos: **Lucas Andrade** e **Bruno Tavares**.
@@ -118,7 +136,7 @@ npm run dev                                         # http://localhost:3000
 - **9 sessões registradas** com RPE e relato · **45 feedbacks**.
 - **Vídeos:** 5 revisados (com comentário do coach) + 8 pendentes (fila de revisão).
 
-Senha fictícia (não há tela de login no demo): `teamff123` · coach: `coach@teamff.consultoria`.
+Todos os usuários usam a senha de demo `teamff123` (hash **bcrypt real** no seed).
 
 ---
 
@@ -126,7 +144,10 @@ Senha fictícia (não há tela de login no demo): `teamff123` · coach: `coach@t
 
 | Método  | Rota                              | Descrição                                  |
 | ------- | --------------------------------- | ------------------------------------------ |
-| `GET`   | `/api/health`                     | Status do serviço + conexão com o banco    |
+| `GET`   | `/api/health`                     | Status do serviço + conexão + seeded       |
+| `POST`  | `/api/auth/login`                 | Login (bcrypt) → cookie de sessão (JWT)    |
+| `POST`  | `/api/auth/logout`                | Encerra a sessão                           |
+| `GET`   | `/api/auth/me`                    | Usuário autenticado atual                  |
 | `GET`   | `/api/coach/overview`             | KPIs + fila de vídeos + atividade recente  |
 | `GET`   | `/api/students`                   | Lista de alunos (resumo)                   |
 | `GET`   | `/api/students/:id`               | Aluno + plano ativo + treinos + logs       |
@@ -152,9 +173,13 @@ App **único Next.js na raiz** (deploy direto na Vercel, sem configuração extr
 │   └── seed.sql                # dados de exemplo
 ├── scripts/setup-db.mjs        # carrega schema + seed no DATABASE_URL
 ├── src/
-│   ├── app/                    # páginas + app/api/* (Route Handlers = a API)
-│   ├── server/                 # db.ts (pool serverless) + queries.ts
-│   ├── components/             # ShareableCard, Brand
+│   ├── middleware.ts           # proteção de rotas + RBAC (coach/aluno)
+│   ├── app/
+│   │   ├── login/              # tela de login (All Black)
+│   │   ├── api/auth/           # login / logout / me
+│   │   └── api/*               # demais Route Handlers = a API
+│   ├── server/                 # db.ts (pool) + queries.ts + auth.ts (JWT)
+│   ├── components/             # ShareableCard, Brand, AuthControls
 │   └── lib/                    # api client (fetch relativo) + format
 └── docker-compose.yml          # db + app (espelha a Vercel localmente)
 ```
@@ -163,5 +188,5 @@ App **único Next.js na raiz** (deploy direto na Vercel, sem configuração extr
 > **removido** (a API agora roda integrada no Next.js em `app/api/*`) para a Vercel
 > reconhecer um único serviço. O código continua no histórico do git, se precisar.
 
-> ⚠️ Ambiente de **demonstração**: autenticação, processamento de mídia real e
-> hardening de produção foram simplificados para foco na visualização do produto.
+> ⚠️ Ambiente de **demonstração**: o upload de mídia é simulado (stub de presigned
+> URL, sem R2/S3 real) e o hardening de produção foi simplificado para foco no produto.
