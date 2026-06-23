@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useApi, type StudentDetail } from "@/lib/api";
+import { useApi, type StudentAnalytics, type StudentDetail } from "@/lib/api";
 import { Wordmark } from "@/components/Brand";
 import StudentNav from "@/components/StudentNav";
-import { EvolutionChart } from "@/components/Charts";
+import { EvolutionChart, BarChart } from "@/components/Charts";
+import { muscleEmoji, muscleLabel } from "@/lib/muscles";
 import { pickEquivalence } from "@/lib/equivalences";
-import { fmtDate, fmtNumber } from "@/lib/format";
+import { fmtDate, fmtNumber, fmtWeight } from "@/lib/format";
 
 export default function EvolucaoPage({ params }: { params: { id: string } }) {
   const { data, loading, error } = useApi<StudentDetail>(`/api/students/${params.id}`);
+  const an = useApi<StudentAnalytics>(`/api/students/${params.id}/analytics`);
 
   const logs = data?.logs ?? [];
   const totalVol = logs.reduce((a, l) => a + (l.tonnage || 0), 0);
@@ -58,6 +60,41 @@ export default function EvolucaoPage({ params }: { params: { id: string } }) {
               <EvolutionChart points={evo} />
             </div>
           </section>
+
+          {/* Volume por grupo muscular */}
+          {an.data && an.data.volumeByMuscle.length > 0 && (
+            <section className="mt-8">
+              <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-500">
+                🦾 Volume por grupo muscular
+              </h2>
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                <BarChart
+                  points={an.data.volumeByMuscle.slice(0, 10).map((v) => ({ label: muscleEmoji(v.muscle), value: v.volume }))}
+                  height={130}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* PRs / 1RM por exercício */}
+          {an.data && an.data.prs.length > 0 && (
+            <section className="mt-8">
+              <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-500">
+                🏆 Recordes por exercício
+              </h2>
+              <div className="space-y-1.5">
+                {an.data.prs.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg border border-neutral-900 px-3 py-2">
+                    <span className="truncate pr-2 text-sm">{p.exercise}</span>
+                    <span className="whitespace-nowrap text-right font-mono text-xs">
+                      <b className="text-white">{fmtWeight(p.pr)}kg</b>
+                      <span className="text-neutral-500"> · 1RM~{fmtNumber(p.e1rm)}kg</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {logs.length === 0 && (
             <p className="mt-6 text-sm text-neutral-600">Registre treinos para ver sua evolução. 💪</p>

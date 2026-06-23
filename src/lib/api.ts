@@ -77,6 +77,24 @@ export interface LogSummary {
   tonnage: number;
 }
 
+export interface CoachAnalytics {
+  volumeByMuscle: Array<{ muscle: string; volume: number }>;
+  ranking: Array<{
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    sessions: number;
+    last_log_at: string | null;
+    volume30: number;
+  }>;
+  skippedReasons: Array<{ reason: string; n: number }>;
+}
+
+export interface StudentAnalytics {
+  prs: Array<{ exercise: string; pr: number; e1rm: number }>;
+  volumeByMuscle: Array<{ muscle: string; volume: number }>;
+}
+
 export interface CoachCalendar {
   schedule: Array<{
     student_id: string;

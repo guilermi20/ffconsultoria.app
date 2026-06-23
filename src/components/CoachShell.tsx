@@ -7,6 +7,7 @@ import AuthControls from "./AuthControls";
 
 const NAV = [
   { href: "/coach", label: "Painel", icon: "🏠", exact: true },
+  { href: "/coach/dashboards", label: "Dashboards", icon: "📊" },
   { href: "/coach/agenda", label: "Agenda", icon: "📅" },
   { href: "/coach/alunos", label: "Alunos", icon: "👥" },
   { href: "/coach/cadastrar", label: "Cadastrar treino", icon: "➕" },

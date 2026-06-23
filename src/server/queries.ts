@@ -331,6 +331,64 @@ export async function createActivePlan(
   }
 }
 
+// --- Analytics (dashboards) ----------------------------------------------
+export async function getCoachAnalytics() {
+  const volumeByMuscle = await query(`
+    SELECT we.muscle_group AS muscle,
+           COALESCE(SUM(we.sets * ef.reps_performed * ef.weight_used), 0)::float AS volume
+    FROM exercise_feedbacks ef
+    JOIN workout_exercises we ON we.id = ef.workout_exercise_id
+    JOIN workout_logs wl ON wl.id = ef.workout_log_id
+    WHERE wl.completed_at > NOW() - INTERVAL '90 days'
+      AND ef.weight_used IS NOT NULL AND we.muscle_group IS NOT NULL AND NOT ef.skipped
+    GROUP BY we.muscle_group ORDER BY volume DESC
+  `);
+  const ranking = await query(`
+    SELECT u.id, u.name, u.avatar_url,
+      (SELECT COUNT(*) FROM workout_logs wl WHERE wl.student_id=u.id
+         AND wl.completed_at > NOW() - INTERVAL '30 days')::int AS sessions,
+      (SELECT MAX(wl.completed_at) FROM workout_logs wl WHERE wl.student_id=u.id) AS last_log_at,
+      COALESCE((SELECT SUM(we.sets * ef.reps_performed * ef.weight_used)
+         FROM workout_logs wl
+         JOIN exercise_feedbacks ef ON ef.workout_log_id=wl.id
+         JOIN workout_exercises we ON we.id=ef.workout_exercise_id
+         WHERE wl.student_id=u.id AND wl.completed_at > NOW() - INTERVAL '30 days'), 0)::float AS volume30
+    FROM users u WHERE u.role='student' ORDER BY volume30 DESC
+  `);
+  const skippedReasons = await query(`
+    SELECT skip_reason AS reason, COUNT(*)::int AS n
+    FROM exercise_feedbacks
+    WHERE skipped AND skip_reason IS NOT NULL AND skip_reason <> ''
+    GROUP BY skip_reason ORDER BY n DESC LIMIT 8
+  `);
+  return { volumeByMuscle, ranking, skippedReasons };
+}
+
+export async function getStudentAnalytics(studentId: string) {
+  const prs = await query(
+    `SELECT we.exercise_name AS exercise,
+            MAX(ef.weight_used)::float AS pr,
+            MAX(ef.weight_used * (1 + ef.reps_performed / 30.0))::float AS e1rm
+     FROM exercise_feedbacks ef
+     JOIN workout_exercises we ON we.id = ef.workout_exercise_id
+     JOIN workout_logs wl ON wl.id = ef.workout_log_id
+     WHERE wl.student_id=$1 AND ef.weight_used > 0 AND NOT ef.skipped
+     GROUP BY we.exercise_name ORDER BY pr DESC LIMIT 15`,
+    [studentId]
+  );
+  const volumeByMuscle = await query(
+    `SELECT we.muscle_group AS muscle,
+            COALESCE(SUM(we.sets * ef.reps_performed * ef.weight_used), 0)::float AS volume
+     FROM exercise_feedbacks ef
+     JOIN workout_exercises we ON we.id = ef.workout_exercise_id
+     JOIN workout_logs wl ON wl.id = ef.workout_log_id
+     WHERE wl.student_id=$1 AND ef.weight_used IS NOT NULL AND we.muscle_group IS NOT NULL AND NOT ef.skipped
+     GROUP BY we.muscle_group ORDER BY volume DESC`,
+    [studentId]
+  );
+  return { prs, volumeByMuscle };
+}
+
 // --- Perfil próprio do usuário (self-service / onboarding) ----------------
 export async function getUserProfile(id: string) {
   return queryOne(
