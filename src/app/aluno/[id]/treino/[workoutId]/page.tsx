@@ -2,23 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  apiSend,
-  useApi,
-  API_URL,
-  type Exercise,
-  type Workout,
-} from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { apiSend, useApi, type Exercise, type Workout } from "@/lib/api";
 import { Wordmark } from "@/components/Brand";
-import { weekdayFull } from "@/lib/format";
+import { BodyMap } from "@/components/BodyMap";
+import { muscleEmoji } from "@/lib/muscles";
+import { fmtWeight, weekdayFull } from "@/lib/format";
 
 interface WorkoutResponse {
-  workout: Workout & {
-    plan_title: string;
-    student_name: string;
-    student_id: string;
-  };
+  workout: Workout & { plan_title: string; student_name: string; student_id: string };
   exercises: Exercise[];
 }
 
@@ -26,7 +18,10 @@ interface FormRow {
   weight: string;
   reps: string;
   videoUrl: string | null;
+  videoName: string | null;
   uploading: boolean;
+  skipped: boolean;
+  skipReason: string;
 }
 
 function firstRep(range: string): string {
@@ -45,38 +40,29 @@ export default function RegistrarTreino({
   );
 
   const [rows, setRows] = useState<Record<string, FormRow>>({});
-  const [rpe, setRpe] = useState<number>(7);
+  const [rpe, setRpe] = useState(7);
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Semeia o formulário assim que o treino carrega.
   useEffect(() => {
     if (data && Object.keys(rows).length === 0) {
       const init: Record<string, FormRow> = {};
       for (const ex of data.exercises) {
         init[ex.id] = {
-          weight: "",
+          weight: ex.target_weight ? String(parseFloat(ex.target_weight)) : "",
           reps: firstRep(ex.reps_range),
           videoUrl: null,
+          videoName: null,
           uploading: false,
+          skipped: false,
+          skipReason: "",
         };
       }
       setRows(init);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
-
-  function row(ex: Exercise): FormRow {
-    return (
-      rows[ex.id] ?? {
-        weight: "",
-        reps: firstRep(ex.reps_range),
-        videoUrl: null,
-        uploading: false,
-      }
-    );
-  }
 
   function update(exId: string, patch: Partial<FormRow>) {
     setRows((prev) => ({
@@ -86,27 +72,30 @@ export default function RegistrarTreino({
           weight: "",
           reps: "",
           videoUrl: null,
+          videoName: null,
           uploading: false,
+          skipped: false,
+          skipReason: "",
         }),
         ...patch,
       },
     }));
   }
 
-  // Simula o fluxo de presigned URL da arquitetura (sem upload real).
-  async function attachVideo(ex: Exercise) {
+  async function onVideoSelected(ex: Exercise, file: File | undefined) {
+    if (!file) return;
     update(ex.id, { uploading: true });
     try {
       const res = await apiSend<{ publicUrl: string }>(
         "/api/uploads/presign",
         "POST",
-        {
-          fileName: `${ex.exercise_name}.mp4`,
-          contentType: "video/mp4",
-          studentId: params.id,
-        }
+        { fileName: file.name, contentType: file.type || "video/mp4", studentId: params.id }
       );
-      update(ex.id, { videoUrl: res.publicUrl, uploading: false });
+      update(ex.id, {
+        videoUrl: res.publicUrl,
+        videoName: file.name,
+        uploading: false,
+      });
     } catch {
       update(ex.id, { uploading: false });
     }
@@ -118,12 +107,15 @@ export default function RegistrarTreino({
     setSubmitError(null);
     try {
       const feedbacks = data.exercises.map((ex) => {
-        const r = row(ex);
+        const r = rows[ex.id];
         return {
           workout_exercise_id: ex.id,
-          weight_used: r.weight ? parseFloat(r.weight.replace(",", ".")) : null,
+          weight_used:
+            r.skipped || !r.weight ? null : parseFloat(r.weight.replace(",", ".")),
           reps_performed: r.reps ? parseInt(r.reps, 10) : null,
           video_url: r.videoUrl,
+          skipped: r.skipped,
+          skip_reason: r.skipped ? r.skipReason || "Não informado" : null,
         };
       });
 
@@ -134,7 +126,6 @@ export default function RegistrarTreino({
         general_student_feedback: feedback || null,
         feedbacks,
       });
-
       router.push(`/aluno/${params.id}/log/${created.id}`);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "Falha ao registrar.");
@@ -167,91 +158,138 @@ export default function RegistrarTreino({
               {data.workout.target_focus}
             </h1>
             <p className="mt-1 text-sm text-neutral-500">
-              Registre suas cargas e marque os exercícios filmados.
+              Registre suas cargas. Pode pular um exercício se precisar.
             </p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-neutral-900 bg-neutral-950 p-3">
+            <BodyMap exercises={data.exercises} />
           </div>
 
           <div className="mt-6 space-y-3">
             {data.exercises.map((ex) => {
-              const r = row(ex);
+              const r = rows[ex.id] ?? ({} as FormRow);
               return (
                 <div
                   key={ex.id}
-                  className="rounded-xl border border-neutral-800 bg-neutral-950 p-4"
+                  className={`rounded-xl border p-4 transition ${
+                    r.skipped
+                      ? "border-amber-800/60 bg-amber-950/10"
+                      : "border-neutral-800 bg-neutral-950"
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-bold leading-tight">
-                        {ex.exercise_name}
+                        {muscleEmoji(ex.muscle_group)} {ex.exercise_name}
                       </div>
                       <div className="mt-0.5 text-[11px] text-neutral-500">
-                        Meta: {ex.sets} séries × {ex.reps_range} reps
+                        Meta: {ex.sets} × {ex.reps_range}
+                        {ex.target_weight ? ` @ ${fmtWeight(ex.target_weight)}kg` : ""}
                       </div>
                     </div>
+                    <button
+                      onClick={() =>
+                        update(ex.id, { skipped: !r.skipped })
+                      }
+                      className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-widest transition ${
+                        r.skipped
+                          ? "bg-amber-600 text-black"
+                          : "border border-neutral-800 text-neutral-400 hover:border-amber-700 hover:text-amber-400"
+                      }`}
+                    >
+                      {r.skipped ? "pulado" : "pular"}
+                    </button>
                   </div>
 
-                  {ex.notes && (
-                    <p className="mt-2 text-[11px] italic text-neutral-500">
-                      “{ex.notes}”
-                    </p>
+                  {ex.notes && !r.skipped && (
+                    <p className="mt-2 text-[11px] italic text-neutral-500">“{ex.notes}”</p>
                   )}
 
-                  <div className="mt-3 flex items-center gap-2">
-                    <label className="flex-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
-                        Carga (kg)
-                      </span>
-                      <input
-                        inputMode="decimal"
-                        value={r.weight}
-                        onChange={(e) =>
-                          update(ex.id, { weight: e.target.value })
-                        }
-                        placeholder="0"
-                        className="mt-1 w-full rounded-md border border-neutral-800 bg-black p-2 text-center font-mono text-sm focus:border-neutral-500 focus:outline-none"
-                      />
-                    </label>
-                    <span className="mt-4 text-neutral-600">×</span>
-                    <label className="flex-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
-                        Reps
-                      </span>
-                      <input
-                        inputMode="numeric"
-                        value={r.reps}
-                        onChange={(e) =>
-                          update(ex.id, { reps: e.target.value })
-                        }
-                        placeholder="0"
-                        className="mt-1 w-full rounded-md border border-neutral-800 bg-black p-2 text-center font-mono text-sm focus:border-neutral-500 focus:outline-none"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-3">
-                    {r.videoUrl ? (
-                      <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-400">
-                        ✓ Vídeo de execução anexado
+                  {r.skipped ? (
+                    <div className="mt-3 space-y-2">
+                      <label className="block">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
+                          Por que pulou?
+                        </span>
+                        <input
+                          value={r.skipReason}
+                          onChange={(e) => update(ex.id, { skipReason: e.target.value })}
+                          placeholder="Ex.: máquina ocupada, dor no ombro…"
+                          className="mt-1 w-full rounded-md border border-amber-900/60 bg-black p-2 text-sm focus:border-amber-600 focus:outline-none"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                          Quanto chegou a fazer? (reps — opcional)
+                        </span>
+                        <input
+                          value={r.reps}
+                          onChange={(e) => update(ex.id, { reps: e.target.value })}
+                          inputMode="numeric"
+                          placeholder="0"
+                          className="mt-1 w-24 rounded-md border border-neutral-800 bg-black p-2 text-center font-mono text-sm focus:border-neutral-500 focus:outline-none"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-3 flex items-center gap-2">
+                        <label className="flex-1">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                            Carga (kg)
+                          </span>
+                          <input
+                            inputMode="decimal"
+                            value={r.weight ?? ""}
+                            onChange={(e) => update(ex.id, { weight: e.target.value })}
+                            placeholder="0"
+                            className="mt-1 w-full rounded-md border border-neutral-800 bg-black p-2 text-center font-mono text-sm focus:border-neutral-500 focus:outline-none"
+                          />
+                        </label>
+                        <span className="mt-4 text-neutral-600">×</span>
+                        <label className="flex-1">
+                          <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                            Reps
+                          </span>
+                          <input
+                            inputMode="numeric"
+                            value={r.reps ?? ""}
+                            onChange={(e) => update(ex.id, { reps: e.target.value })}
+                            placeholder="0"
+                            className="mt-1 w-full rounded-md border border-neutral-800 bg-black p-2 text-center font-mono text-sm focus:border-neutral-500 focus:outline-none"
+                          />
+                        </label>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => attachVideo(ex)}
-                        disabled={r.uploading}
-                        className="text-[11px] font-bold uppercase tracking-widest text-neutral-400 underline-offset-2 hover:text-white hover:underline disabled:opacity-50"
-                      >
-                        {r.uploading ? "Enviando…" : "+ Anexar vídeo"}
-                      </button>
-                    )}
-                  </div>
+
+                      <div className="mt-3">
+                        {r.videoUrl ? (
+                          <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-400">
+                            ✓ Vídeo anexado{r.videoName ? `: ${r.videoName}` : ""}
+                          </div>
+                        ) : (
+                          <label className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white">
+                            <input
+                              type="file"
+                              accept="video/*"
+                              className="hidden"
+                              onChange={(e) => onVideoSelected(ex, e.target.files?.[0])}
+                            />
+                            {r.uploading ? "📤 Enviando…" : "🎬 Anexar vídeo da execução"}
+                          </label>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          {/* RPE + feedback geral */}
+          {/* RPE + feedback */}
           <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950 p-4">
             <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
-              Percepção de esforço (RPE)
+              💢 Percepção de esforço (RPE)
             </span>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -259,9 +297,7 @@ export default function RegistrarTreino({
                   key={n}
                   onClick={() => setRpe(n)}
                   className={`h-8 w-8 rounded-md text-xs font-bold transition ${
-                    rpe === n
-                      ? "bg-white text-black"
-                      : "bg-black text-neutral-400 hover:bg-neutral-900"
+                    rpe === n ? "bg-red-600 text-white" : "bg-black text-neutral-400 hover:bg-neutral-900"
                   }`}
                 >
                   {n}
@@ -277,20 +313,15 @@ export default function RegistrarTreino({
             />
           </div>
 
-          {submitError && (
-            <p className="mt-3 text-sm text-red-400">{submitError}</p>
-          )}
+          {submitError && <p className="mt-3 text-sm text-red-400">{submitError}</p>}
 
           <button
             onClick={submit}
             disabled={submitting}
-            className="mt-6 w-full rounded-lg bg-white py-3.5 text-sm font-black uppercase tracking-widest text-black transition hover:bg-neutral-200 active:scale-[0.99] disabled:opacity-50"
+            className="mt-6 w-full rounded-lg bg-red-600 py-3.5 text-sm font-black uppercase tracking-widest text-white transition hover:bg-red-500 active:scale-[0.99] disabled:opacity-50"
           >
-            {submitting ? "Registrando…" : "Concluir treino"}
+            {submitting ? "Registrando…" : "Concluir treino 🔥"}
           </button>
-          <p className="mt-3 text-center text-[10px] text-neutral-600">
-            {API_URL ? `API: ${API_URL}` : "API on-line"}
-          </p>
         </>
       )}
     </main>

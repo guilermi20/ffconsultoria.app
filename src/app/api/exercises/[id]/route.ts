@@ -1,27 +1,9 @@
 import { NextResponse } from "next/server";
-import { getWorkout, updateWorkout, deleteWorkout } from "@/server/queries";
+import { updateWorkoutExercise, deleteWorkoutExercise } from "@/server/queries";
 import { requireCoach } from "@/server/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const data = await getWorkout(params.id);
-    if (!data) {
-      return NextResponse.json({ error: "Treino não encontrado." }, { status: 404 });
-    }
-    return NextResponse.json(data);
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erro" },
-      { status: 500 }
-    );
-  }
-}
 
 export async function PATCH(
   req: Request,
@@ -32,9 +14,9 @@ export async function PATCH(
   }
   const body = await req.json().catch(() => ({}));
   try {
-    const updated = await updateWorkout(params.id, body);
+    const updated = await updateWorkoutExercise(params.id, body);
     if (!updated) {
-      return NextResponse.json({ error: "Treino não encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "Exercício não encontrado." }, { status: 404 });
     }
     return NextResponse.json(updated);
   } catch (e) {
@@ -53,9 +35,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Acesso restrito ao coach." }, { status: 403 });
   }
   try {
-    const removed = await deleteWorkout(params.id);
+    const removed = await deleteWorkoutExercise(params.id);
     if (!removed) {
-      return NextResponse.json({ error: "Treino não encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "Exercício não encontrado." }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
   } catch (e) {

@@ -18,7 +18,7 @@ export async function getCoachOverview() {
 
   const pendingVideos = await query(`
     SELECT ef.id AS feedback_id, wl.id AS log_id,
-           u.id AS student_id, u.name AS student_name, u.instagram_handle,
+           u.id AS student_id, u.name AS student_name, u.instagram_handle, u.avatar_url,
            we.exercise_name, ef.weight_used, ef.reps_performed, ef.video_url,
            w.target_focus, wl.completed_at
     FROM exercise_feedbacks ef
@@ -31,7 +31,7 @@ export async function getCoachOverview() {
   `);
 
   const recentActivity = await query(`
-    SELECT wl.id AS log_id, u.id AS student_id, u.name AS student_name,
+    SELECT wl.id AS log_id, u.id AS student_id, u.name AS student_name, u.avatar_url,
            w.target_focus, wl.rpe, wl.completed_at,
            (wl.general_coach_feedback IS NOT NULL) AS coach_replied,
            (SELECT COUNT(*) FROM exercise_feedbacks ef
@@ -44,12 +44,30 @@ export async function getCoachOverview() {
     LIMIT 12
   `);
 
-  return { kpis, pendingVideos, recentActivity };
+  // Volume total (kg) por semana, últimas 8 semanas — para o gráfico do painel.
+  const weeklyVolume = await query(`
+    WITH semanas AS (
+      SELECT generate_series(0, 7) AS k
+    )
+    SELECT
+      to_char(date_trunc('week', NOW()) - (k || ' weeks')::interval, 'DD/MM') AS week_label,
+      COALESCE((
+        SELECT SUM(we.sets * ef.reps_performed * ef.weight_used)
+        FROM workout_logs wl
+        JOIN exercise_feedbacks ef ON ef.workout_log_id = wl.id
+        JOIN workout_exercises we ON we.id = ef.workout_exercise_id
+        WHERE date_trunc('week', wl.completed_at) = date_trunc('week', NOW()) - (k || ' weeks')::interval
+      ), 0)::float AS volume
+    FROM semanas
+    ORDER BY k DESC
+  `);
+
+  return { kpis, pendingVideos, recentActivity, weeklyVolume };
 }
 
 export async function listStudents() {
   return query(`
-    SELECT u.id, u.name, u.email, u.instagram_handle, u.created_at,
+    SELECT u.id, u.name, u.email, u.instagram_handle, u.avatar_url, u.is_active, u.created_at,
            p.id AS active_plan_id, p.title AS active_plan_title,
            (SELECT COUNT(*) FROM workout_logs wl WHERE wl.student_id=u.id)::int AS total_logs,
            (SELECT MAX(wl.completed_at) FROM workout_logs wl WHERE wl.student_id=u.id) AS last_log_at,
@@ -66,7 +84,7 @@ export async function listStudents() {
 
 export async function getStudentDetail(id: string) {
   const student = await queryOne(
-    `SELECT id, name, email, instagram_handle, role, created_at
+    `SELECT id, name, email, instagram_handle, avatar_url, is_active, goal, role, created_at
      FROM users WHERE id=$1 AND role='student'`,
     [id]
   );
@@ -89,7 +107,7 @@ export async function getStudentDetail(id: string) {
     );
     for (const w of workouts) {
       w.exercises = await query(
-        `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, sequence_order
+        `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
          FROM workout_exercises WHERE workout_id=$1
          ORDER BY sequence_order`,
         [w.id]
@@ -133,7 +151,7 @@ export async function getWorkout(id: string) {
   if (!workout) return null;
 
   const exercises = await query(
-    `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, sequence_order
+    `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
      FROM workout_exercises WHERE workout_id=$1
      ORDER BY sequence_order`,
     [id]
@@ -159,9 +177,10 @@ export async function getLogDetail(id: string) {
   if (!log) return null;
 
   const feedbacks = await query(
-    `SELECT ef.id, we.exercise_name, we.sets, we.reps_range, we.sequence_order,
+    `SELECT ef.id, we.exercise_name, we.sets, we.reps_range, we.sequence_order, we.muscle_group, we.target_weight,
             ef.weight_used, ef.reps_performed,
-            ef.video_url, ef.video_status, ef.coach_video_comment
+            ef.video_url, ef.video_status, ef.coach_video_comment,
+            ef.skipped, ef.skip_reason
      FROM exercise_feedbacks ef
      JOIN workout_exercises we ON we.id = ef.workout_exercise_id
      WHERE ef.workout_log_id=$1
@@ -184,6 +203,8 @@ interface FeedbackInput {
   weight_used?: number | null;
   reps_performed?: number | null;
   video_url?: string | null;
+  skipped?: boolean | null;
+  skip_reason?: string | null;
 }
 
 export async function createLog(input: {
@@ -213,14 +234,16 @@ export async function createLog(input: {
     for (const f of input.feedbacks ?? []) {
       await client.query(
         `INSERT INTO exercise_feedbacks
-           (workout_log_id, workout_exercise_id, weight_used, reps_performed, video_url, video_status)
-         VALUES ($1, $2, $3, $4, $5, 'pending')`,
+           (workout_log_id, workout_exercise_id, weight_used, reps_performed, video_url, video_status, skipped, skip_reason)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)`,
         [
           logId,
           f.workout_exercise_id,
           f.weight_used ?? null,
           f.reps_performed ?? null,
           f.video_url ?? null,
+          f.skipped ?? false,
+          f.skip_reason ?? null,
         ]
       );
     }
@@ -250,5 +273,286 @@ export async function setLogCoachFeedback(id: string, feedback: string) {
     `UPDATE workout_logs SET general_coach_feedback=$1
      WHERE id=$2 RETURNING id, general_coach_feedback`,
     [feedback, id]
+  );
+}
+
+// --- Biblioteca de exercícios (catálogo) ---------------------------------
+export async function getExerciseCatalog(muscleGroup?: string | null) {
+  if (muscleGroup) {
+    return query(
+      `SELECT id, name, muscle_group, equipment FROM exercise_catalog
+       WHERE muscle_group=$1 ORDER BY name`,
+      [muscleGroup]
+    );
+  }
+  return query(
+    `SELECT id, name, muscle_group, equipment FROM exercise_catalog ORDER BY muscle_group, name`
+  );
+}
+
+// --- Coach adiciona um exercício a um treino -----------------------------
+interface ExerciseInput {
+  exercise_name: string;
+  sets?: number | null;
+  reps_range?: string | null;
+  rest_seconds?: number | null;
+  notes?: string | null;
+  muscle_group?: string | null;
+  target_weight?: number | null;
+}
+
+export async function addWorkoutExercise(workoutId: string, input: ExerciseInput) {
+  const seqRow = await queryOne<{ next: number }>(
+    `SELECT COALESCE(MAX(sequence_order), 0) + 1 AS next
+     FROM workout_exercises WHERE workout_id=$1`,
+    [workoutId]
+  );
+  const next = seqRow?.next ?? 1;
+
+  return queryOne(
+    `INSERT INTO workout_exercises
+       (workout_id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order`,
+    [
+      workoutId,
+      input.exercise_name,
+      input.sets ?? 3,
+      input.reps_range ?? "10-12",
+      input.rest_seconds ?? 90,
+      input.notes ?? null,
+      input.muscle_group ?? null,
+      input.target_weight ?? null,
+      next,
+    ]
+  );
+}
+
+export async function updateWorkoutExercise(id: string, input: ExerciseInput) {
+  return queryOne(
+    `UPDATE workout_exercises SET
+        exercise_name = COALESCE($2, exercise_name),
+        sets          = COALESCE($3, sets),
+        reps_range    = COALESCE($4, reps_range),
+        rest_seconds  = COALESCE($5, rest_seconds),
+        notes         = $6,
+        muscle_group  = COALESCE($7, muscle_group),
+        target_weight = $8
+      WHERE id=$1
+      RETURNING id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order`,
+    [
+      id,
+      input.exercise_name ?? null,
+      input.sets ?? null,
+      input.reps_range ?? null,
+      input.rest_seconds ?? null,
+      input.notes ?? null,
+      input.muscle_group ?? null,
+      input.target_weight ?? null,
+    ]
+  );
+}
+
+export async function deleteWorkoutExercise(id: string) {
+  return queryOne(`DELETE FROM workout_exercises WHERE id=$1 RETURNING id`, [id]);
+}
+
+/** Reordena: define sequence_order conforme a posição no array. */
+export async function reorderWorkoutExercises(orderedIds: string[]) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query(
+        `UPDATE workout_exercises SET sequence_order=$1 WHERE id=$2`,
+        [i + 1, orderedIds[i]]
+      );
+    }
+    await client.query("COMMIT");
+    return { ok: true };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateWorkout(
+  id: string,
+  input: { target_focus?: string | null; day_sequence?: number | null; template_title?: string | null }
+) {
+  return queryOne(
+    `UPDATE workouts SET
+        target_focus  = COALESCE($2, target_focus),
+        day_sequence  = COALESCE($3, day_sequence),
+        template_title = COALESCE($4, template_title)
+      WHERE id=$1
+      RETURNING id, target_focus, day_sequence, template_title, is_template`,
+    [id, input.target_focus ?? null, input.day_sequence ?? null, input.template_title ?? null]
+  );
+}
+
+export async function deleteWorkout(id: string) {
+  return queryOne(`DELETE FROM workouts WHERE id=$1 RETURNING id`, [id]);
+}
+
+/** Garante um plano ativo para o aluno (cria se não existir). */
+async function ensureActivePlan(client: any, studentId: string): Promise<string> {
+  const existing = await client.query(
+    `SELECT id FROM training_plans WHERE student_id=$1 AND is_active=true ORDER BY created_at DESC LIMIT 1`,
+    [studentId]
+  );
+  if (existing.rows[0]) return existing.rows[0].id;
+  const created = await client.query(
+    `INSERT INTO training_plans (student_id, title, description, is_active)
+     VALUES ($1, 'Plano de Treino', 'Plano criado pelo coach.', true) RETURNING id`,
+    [studentId]
+  );
+  return created.rows[0].id;
+}
+
+/** Cria um treino (com exercícios) para um aluno, sob o plano ativo. */
+export async function createWorkoutForStudent(
+  studentId: string,
+  input: {
+    target_focus: string;
+    day_sequence?: number | null;
+    exercises?: ExerciseInput[];
+  }
+): Promise<string> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const planId = await ensureActivePlan(client, studentId);
+    const wk = await client.query(
+      `INSERT INTO workouts (training_plan_id, is_template, day_sequence, target_focus)
+       VALUES ($1, false, $2, $3) RETURNING id`,
+      [planId, input.day_sequence ?? 1, input.target_focus]
+    );
+    const workoutId = wk.rows[0].id as string;
+    let seq = 1;
+    for (const ex of input.exercises ?? []) {
+      await client.query(
+        `INSERT INTO workout_exercises
+           (workout_id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          workoutId,
+          ex.exercise_name,
+          ex.sets ?? 3,
+          ex.reps_range ?? "10-12",
+          ex.rest_seconds ?? 90,
+          ex.notes ?? null,
+          ex.muscle_group ?? null,
+          ex.target_weight ?? null,
+          seq++,
+        ]
+      );
+    }
+    await client.query("COMMIT");
+    return workoutId;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// --- Templates (galeria de treinos) --------------------------------------
+export async function getTemplates() {
+  const templates = await query(
+    `SELECT id, template_title, target_focus, created_at
+     FROM workouts WHERE is_template=true ORDER BY created_at`
+  );
+  for (const t of templates) {
+    t.exercises = await query(
+      `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
+       FROM workout_exercises WHERE workout_id=$1 ORDER BY sequence_order`,
+      [t.id]
+    );
+  }
+  return templates;
+}
+
+export async function createTemplate(input: {
+  template_title: string;
+  target_focus: string;
+  exercises?: ExerciseInput[];
+}): Promise<string> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const wk = await client.query(
+      `INSERT INTO workouts (training_plan_id, is_template, template_title, day_sequence, target_focus)
+       VALUES (NULL, true, $1, 0, $2) RETURNING id`,
+      [input.template_title, input.target_focus]
+    );
+    const id = wk.rows[0].id as string;
+    let seq = 1;
+    for (const ex of input.exercises ?? []) {
+      await client.query(
+        `INSERT INTO workout_exercises
+           (workout_id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [id, ex.exercise_name, ex.sets ?? 3, ex.reps_range ?? "10-12", ex.rest_seconds ?? 90,
+         ex.notes ?? null, ex.muscle_group ?? null, ex.target_weight ?? null, seq++],
+      );
+    }
+    await client.query("COMMIT");
+    return id;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Aplica um template a um aluno: COPIA os exercícios para um novo treino. */
+export async function applyTemplate(
+  templateId: string,
+  studentId: string
+): Promise<string> {
+  const tpl = await queryOne<{ target_focus: string; template_title: string }>(
+    `SELECT target_focus, template_title FROM workouts WHERE id=$1 AND is_template=true`,
+    [templateId]
+  );
+  if (!tpl) throw new Error("Template não encontrado.");
+  const exercises = await query<ExerciseInput>(
+    `SELECT exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight
+     FROM workout_exercises WHERE workout_id=$1 ORDER BY sequence_order`,
+    [templateId]
+  );
+  // Cria um treino normal (cópia independente) — editar não afeta o template.
+  return createWorkoutForStudent(studentId, {
+    target_focus: tpl.target_focus || tpl.template_title,
+    day_sequence: 1,
+    exercises,
+  });
+}
+
+// --- Coach atualiza perfil do aluno (foto / instagram / status) ----------
+export async function updateStudentProfile(
+  id: string,
+  input: {
+    instagram_handle?: string | null;
+    avatar_url?: string | null;
+    is_active?: boolean | null;
+    goal?: string | null;
+  }
+) {
+  return queryOne(
+    `UPDATE users
+        SET instagram_handle = COALESCE($2, instagram_handle),
+            avatar_url       = COALESCE($3, avatar_url),
+            is_active        = COALESCE($4, is_active),
+            goal             = COALESCE($5, goal)
+      WHERE id=$1 AND role='student'
+      RETURNING id, name, instagram_handle, avatar_url, is_active, goal`,
+    [id, input.instagram_handle ?? null, input.avatar_url ?? null,
+     typeof input.is_active === "boolean" ? input.is_active : null,
+     input.goal ?? null]
   );
 }

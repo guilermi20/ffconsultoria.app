@@ -35,8 +35,9 @@ export async function POST(req: Request) {
       name: string;
       role: Role;
       password_hash: string;
+      is_active: boolean;
     }>(
-      `SELECT id, name, role, password_hash FROM users WHERE LOWER(email)=$1`,
+      `SELECT id, name, role, password_hash, is_active FROM users WHERE LOWER(email)=$1`,
       [email]
     );
 
@@ -49,6 +50,17 @@ export async function POST(req: Request) {
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return invalid;
+
+    // Plano inativo → aluno não entra (coach nunca é bloqueado).
+    if (user.role === "student" && user.is_active === false) {
+      return NextResponse.json(
+        {
+          error:
+            "Seu plano está inativo. Regularize sua mensalidade com a TEAM FF para voltar a treinar. 💪",
+        },
+        { status: 403 }
+      );
+    }
 
     const token = await signSession({
       sub: user.id,

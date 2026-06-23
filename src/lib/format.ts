@@ -78,3 +78,22 @@ export function initials(name: string): string {
     .map((p) => p[0]?.toUpperCase())
     .join("");
 }
+
+/** Saudação conforme o horário no fuso de São Paulo. */
+export function greetingSaoPaulo(): string {
+  let hour = new Date().getHours();
+  try {
+    hour = Number(
+      new Intl.DateTimeFormat("pt-BR", {
+        hour: "numeric",
+        hour12: false,
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date())
+    );
+  } catch {
+    /* fallback: hora local */
+  }
+  if (hour >= 5 && hour < 12) return "Bom dia";
+  if (hour >= 12 && hour < 18) return "Boa tarde";
+  return "Boa noite";
+}

@@ -34,10 +34,10 @@ export default function LoginPage() {
           ? new URLSearchParams(window.location.search).get("next")
           : null;
 
-      if (next && next.startsWith("/")) {
-        router.replace(next);
-      } else if (user.role === "coach") {
-        router.replace("/coach");
+      // Redirecionamento por papel: aluno sempre vai à própria área
+      // (mesmo que tenha entrado pelo card "Painel do Consultor").
+      if (user.role === "coach") {
+        router.replace(next && next.startsWith("/") ? next : "/coach");
       } else {
         router.replace(`/aluno/${user.id}`);
       }

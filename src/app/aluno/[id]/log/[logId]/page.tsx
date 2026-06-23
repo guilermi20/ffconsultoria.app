@@ -7,6 +7,7 @@ import ShareableCard, {
   type ShareableCardData,
 } from "@/components/ShareableCard";
 import { fmtNumber, fmtWeight, weekdayFull } from "@/lib/format";
+import { pickEquivalence } from "@/lib/equivalences";
 
 export default function LogResultPage({
   params,
@@ -21,7 +22,7 @@ export default function LogResultPage({
     ? {
         title: data.log.target_focus.toUpperCase(),
         dayOfWeek: weekdayFull(data.log.day_sequence).toUpperCase(),
-        instagram: data.log.instagram_handle,
+        instagram: "@teamff.consultoria",
         totalTonnage: data.tonnage,
         exercises: data.feedbacks.map((f) => ({
           name: f.exercise_name,
@@ -64,6 +65,23 @@ export default function LogResultPage({
               {data.log.rpe ? ` · RPE ${data.log.rpe}` : ""}
             </p>
           </div>
+
+          {/* Gamificação — equivalência de peso */}
+          {(() => {
+            const eq = pickEquivalence(data.tonnage);
+            if (!eq) return null;
+            return (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-red-800/60 bg-gradient-to-br from-red-950/40 via-black to-black p-6 text-center">
+                <div className="text-6xl leading-none">{eq.emoji}</div>
+                <p className="mt-3 text-lg font-black leading-snug text-white">
+                  {eq.phrase}
+                </p>
+                <p className="mt-2 text-[11px] uppercase tracking-widest text-red-400">
+                  Isso é muito peso. Disciplina virando resultado. 🔥
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Feedback do coach (se houver) */}
           {data.log.general_coach_feedback && (

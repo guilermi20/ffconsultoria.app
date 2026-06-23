@@ -15,6 +15,8 @@ export interface StudentSummary {
   name: string;
   email: string;
   instagram_handle: string;
+  avatar_url: string | null;
+  is_active: boolean;
   created_at: string;
   active_plan_id: string | null;
   active_plan_title: string | null;
@@ -30,7 +32,24 @@ export interface Exercise {
   reps_range: string;
   rest_seconds: number;
   notes: string | null;
+  muscle_group: string | null;
+  target_weight: string | null;
   sequence_order: number;
+}
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  muscle_group: string;
+  equipment: string | null;
+}
+
+export interface Template {
+  id: string;
+  template_title: string;
+  target_focus: string;
+  created_at: string;
+  exercises: Exercise[];
 }
 
 export interface Workout {
@@ -62,6 +81,9 @@ export interface StudentDetail {
     name: string;
     email: string;
     instagram_handle: string;
+    avatar_url: string | null;
+    is_active: boolean;
+    goal: string | null;
     role: string;
     created_at: string;
   };
@@ -82,11 +104,15 @@ export interface FeedbackRow {
   sets: number;
   reps_range: string;
   sequence_order: number;
+  muscle_group: string | null;
+  target_weight: string | null;
   weight_used: string | null;
   reps_performed: number | null;
   video_url: string | null;
   video_status: "pending" | "reviewed";
   coach_video_comment: string | null;
+  skipped: boolean;
+  skip_reason: string | null;
 }
 
 export interface LogDetail {
@@ -121,6 +147,7 @@ export interface CoachOverview {
     student_id: string;
     student_name: string;
     instagram_handle: string;
+    avatar_url: string | null;
     exercise_name: string;
     weight_used: string | null;
     reps_performed: number | null;
@@ -132,12 +159,14 @@ export interface CoachOverview {
     log_id: string;
     student_id: string;
     student_name: string;
+    avatar_url: string | null;
     target_focus: string;
     rpe: number | null;
     completed_at: string;
     coach_replied: boolean;
     pending_videos: number;
   }>;
+  weeklyVolume: Array<{ week_label: string; volume: number }>;
 }
 
 // ---------------------------------------------------------------------
@@ -151,7 +180,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiSend<T>(
   path: string,
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "DELETE",
   body: unknown
 ): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

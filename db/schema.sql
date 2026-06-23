@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role user_role NOT NULL DEFAULT 'student',
     instagram_handle VARCHAR(100) DEFAULT '@teamff.consultoria',
+    avatar_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    goal TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -66,7 +69,20 @@ CREATE TABLE IF NOT EXISTS workout_exercises (
     reps_range VARCHAR(50) NOT NULL,
     rest_seconds INT DEFAULT 90,
     notes TEXT,
+    muscle_group VARCHAR(40),
+    target_weight NUMERIC(6,2),
     sequence_order INT NOT NULL
+);
+
+-- ---------------------------------------------------------------------
+-- exercise_catalog  (biblioteca base de exercícios reaproveitável)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS exercise_catalog (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    muscle_group VARCHAR(40) NOT NULL,
+    equipment VARCHAR(60),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ---------------------------------------------------------------------
@@ -93,7 +109,9 @@ CREATE TABLE IF NOT EXISTS exercise_feedbacks (
     reps_performed INT,
     video_url TEXT,
     video_status video_status DEFAULT 'pending',
-    coach_video_comment TEXT
+    coach_video_comment TEXT,
+    skipped BOOLEAN DEFAULT false,
+    skip_reason TEXT
 );
 
 -- ---------------------------------------------------------------------
@@ -105,3 +123,17 @@ CREATE INDEX IF NOT EXISTS idx_workout_exercises_wk   ON workout_exercises(worko
 CREATE INDEX IF NOT EXISTS idx_workout_logs_student   ON workout_logs(student_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_log ON exercise_feedbacks(workout_log_id);
 CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_status ON exercise_feedbacks(video_status);
+CREATE INDEX IF NOT EXISTS idx_exercise_catalog_group ON exercise_catalog(muscle_group);
+CREATE INDEX IF NOT EXISTS idx_workout_exercises_group ON workout_exercises(muscle_group);
+
+-- ---------------------------------------------------------------------
+-- Migrações aditivas (idempotentes) — para bancos já existentes ganharem
+-- as colunas novas sem recriar tabelas.
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT;
+ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS muscle_group VARCHAR(40);
+ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS target_weight NUMERIC(6,2);
+ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skipped BOOLEAN DEFAULT false;
+ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skip_reason TEXT;
