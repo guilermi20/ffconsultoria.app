@@ -149,7 +149,7 @@ export default function CoachDashboard() {
                   {data.pendingVideos.slice(0, 6).map((v) => (
                     <Link
                       key={v.feedback_id}
-                      href={`/coach/alunos/${v.student_id}`}
+                      href={`/coach/review/${v.log_id}`}
                       className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 transition hover:border-red-700"
                     >
                       <Avatar name={v.student_name} src={v.avatar_url} size={30} />

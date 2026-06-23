@@ -123,6 +123,8 @@ export async function getStudentDetail(id: string) {
             (SELECT COUNT(*) FROM exercise_feedbacks ef
                WHERE ef.workout_log_id=wl.id
                  AND ef.video_status='pending' AND ef.video_url IS NOT NULL)::int AS pending_videos,
+            (SELECT COUNT(*) FROM exercise_feedbacks ef
+               WHERE ef.workout_log_id=wl.id AND ef.skipped)::int AS skipped_count,
             COALESCE((SELECT SUM(we.sets * ef.reps_performed * ef.weight_used)
                FROM exercise_feedbacks ef
                JOIN workout_exercises we ON we.id=ef.workout_exercise_id
@@ -274,6 +276,31 @@ export async function setLogCoachFeedback(id: string, feedback: string) {
      WHERE id=$2 RETURNING id, general_coach_feedback`,
     [feedback, id]
   );
+}
+
+// --- Agenda / calendário do coach ----------------------------------------
+export async function getCoachCalendar() {
+  const schedule = await query(`
+    SELECT u.id AS student_id, u.name AS student_name, u.avatar_url,
+           w.id AS workout_id, w.day_sequence, w.target_focus
+    FROM workouts w
+    JOIN training_plans tp ON tp.id = w.training_plan_id AND tp.is_active
+    JOIN users u ON u.id = tp.student_id
+    WHERE w.is_template = false
+    ORDER BY w.day_sequence, u.name
+  `);
+  const logs = await query(`
+    SELECT wl.id, wl.student_id, u.name AS student_name, u.avatar_url,
+           wl.workout_id, wl.completed_at, w.target_focus,
+           (SELECT COUNT(*) FROM exercise_feedbacks ef WHERE ef.workout_log_id=wl.id)::int AS total,
+           (SELECT COUNT(*) FROM exercise_feedbacks ef WHERE ef.workout_log_id=wl.id AND ef.skipped)::int AS skipped
+    FROM workout_logs wl
+    JOIN users u ON u.id = wl.student_id
+    JOIN workouts w ON w.id = wl.workout_id
+    WHERE wl.completed_at > NOW() - INTERVAL '120 days'
+    ORDER BY wl.completed_at DESC
+  `);
+  return { schedule, logs };
 }
 
 // --- Biblioteca de exercícios (catálogo) ---------------------------------

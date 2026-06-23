@@ -9,6 +9,16 @@ import { EvolutionChart } from "@/components/Charts";
 import { BodyMap } from "@/components/BodyMap";
 import { dominantMuscle, muscleEmoji, muscleLabel } from "@/lib/muscles";
 import {
+  STATUS_META,
+  daySeq,
+  statusFor,
+  mondayOf,
+  addDays,
+  sameDay,
+  startOfToday,
+  WD_SHORT,
+} from "@/lib/calendar";
+import {
   fmtDate,
   fmtNumber,
   fmtRelative,
@@ -61,6 +71,69 @@ export default function AlunoHome({ params }: { params: { id: string } }) {
               </p>
             </div>
           )}
+
+          {/* Sua semana (calendário) */}
+          {(() => {
+            const mon = mondayOf(new Date());
+            const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+            const today = startOfToday();
+            const schedule = data.workouts.map((w) => ({
+              student_id: params.id,
+              workout_id: w.id,
+              day_sequence: w.day_sequence,
+              target_focus: w.target_focus,
+            }));
+            const logsLike = data.logs.map((l) => ({
+              student_id: params.id,
+              workout_id: l.workout_id,
+              completed_at: l.completed_at,
+              skipped: l.skipped_count,
+            }));
+            return (
+              <section className="mt-6">
+                <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-500">
+                  📅 Sua semana
+                </h2>
+                <div className="grid grid-cols-7 gap-1">
+                  {week.map((date, i) => {
+                    const ds = daySeq(date);
+                    const items = schedule
+                      .filter((s) => s.day_sequence === ds)
+                      .map((s) => ({
+                        s,
+                        status: statusFor(date, s.student_id, s.workout_id, logsLike),
+                      }));
+                    const isToday = sameDay(date, today);
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-lg border p-1.5 text-center ${
+                          isToday ? "border-red-700 bg-red-950/20" : "border-neutral-800 bg-neutral-950"
+                        }`}
+                      >
+                        <div className="text-[8px] font-bold tracking-widest text-neutral-500">
+                          {WD_SHORT[i]}
+                        </div>
+                        <div className={`text-xs font-bold ${isToday ? "text-red-400" : "text-neutral-300"}`}>
+                          {date.getDate()}
+                        </div>
+                        <div className="mt-1 flex flex-col items-center gap-0.5">
+                          {items.length === 0 && <span className="text-[9px] text-neutral-700">·</span>}
+                          {items.map((e, j) => (
+                            <span
+                              key={j}
+                              title={`${e.s.target_focus} · ${STATUS_META[e.status].label}`}
+                              className={`h-2 w-2 rounded-full ${STATUS_META[e.status].dot}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-3 gap-2">

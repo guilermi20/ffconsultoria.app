@@ -33,7 +33,7 @@ export default function VideosPage() {
             {list.map((v) => (
               <Link
                 key={v.feedback_id}
-                href={`/coach/alunos/${v.student_id}`}
+                href={`/coach/review/${v.log_id}`}
                 className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950 p-4 transition hover:border-red-700"
               >
                 <div className="flex aspect-[9/16] w-12 flex-none items-center justify-center rounded-md border border-neutral-800 bg-gradient-to-b from-neutral-900 to-black text-neutral-600">

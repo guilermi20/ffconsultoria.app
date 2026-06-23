@@ -72,7 +72,30 @@ export interface LogSummary {
   day_sequence: number;
   exercises_count: number;
   pending_videos: number;
+  skipped_count: number;
   tonnage: number;
+}
+
+export interface CoachCalendar {
+  schedule: Array<{
+    student_id: string;
+    student_name: string;
+    avatar_url: string | null;
+    workout_id: string;
+    day_sequence: number;
+    target_focus: string;
+  }>;
+  logs: Array<{
+    id: string;
+    student_id: string;
+    student_name: string;
+    avatar_url: string | null;
+    workout_id: string;
+    completed_at: string;
+    target_focus: string;
+    total: number;
+    skipped: number;
+  }>;
 }
 
 export interface StudentDetail {
