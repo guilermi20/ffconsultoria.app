@@ -2,8 +2,8 @@
 // Setup do banco — roda schema.sql + seed.sql contra o DATABASE_URL.
 // Uso:
 //   1) defina DATABASE_URL (Neon / Vercel Postgres / Supabase / local)
-//      via frontend/.env.local  OU  variável de ambiente
-//   2) cd frontend && npm run db:setup
+//      via .env.local  OU  variável de ambiente
+//   2) npm run db:setup
 // =====================================================================
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
