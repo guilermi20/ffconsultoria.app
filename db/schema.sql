@@ -115,6 +115,18 @@ CREATE TABLE IF NOT EXISTS exercise_feedbacks (
 );
 
 -- ---------------------------------------------------------------------
+-- Migrações aditivas (idempotentes) — DEVEM vir ANTES dos índices, para
+-- que bancos já existentes ganhem as colunas novas antes de indexá-las.
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT;
+ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS muscle_group VARCHAR(40);
+ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS target_weight NUMERIC(6,2);
+ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skipped BOOLEAN DEFAULT false;
+ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+
+-- ---------------------------------------------------------------------
 -- Índices úteis para o painel/consultas do demo
 -- ---------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_training_plans_student ON training_plans(student_id);
@@ -125,15 +137,3 @@ CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_log ON exercise_feedbacks(work
 CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_status ON exercise_feedbacks(video_status);
 CREATE INDEX IF NOT EXISTS idx_exercise_catalog_group ON exercise_catalog(muscle_group);
 CREATE INDEX IF NOT EXISTS idx_workout_exercises_group ON workout_exercises(muscle_group);
-
--- ---------------------------------------------------------------------
--- Migrações aditivas (idempotentes) — para bancos já existentes ganharem
--- as colunas novas sem recriar tabelas.
--- ---------------------------------------------------------------------
-ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT;
-ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS muscle_group VARCHAR(40);
-ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS target_weight NUMERIC(6,2);
-ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skipped BOOLEAN DEFAULT false;
-ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skip_reason TEXT;
