@@ -49,6 +49,16 @@ export default function ReviewPage({ params }: { params: { logId: string } }) {
               </div>
             )}
 
+            {data.log.pump_photo_url && (
+              <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                  📸 Foto do pump
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={data.log.pump_photo_url} alt="pump" className="mt-2 h-56 rounded-lg object-cover" />
+              </div>
+            )}
+
             <div className="mt-6 space-y-6">
               {withVideo.length === 0 && (
                 <p className="rounded-xl border border-neutral-800 bg-neutral-950 p-6 text-center text-sm text-neutral-500">

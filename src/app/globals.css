@@ -52,3 +52,20 @@ body {
 .animate-fade-up {
   animation: fadeUp 0.4s ease both;
 }
+
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-floaty {
+  animation: floaty 2.4s ease-in-out infinite;
+}

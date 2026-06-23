@@ -34,6 +34,7 @@ export interface Exercise {
   notes: string | null;
   muscle_group: string | null;
   target_weight: string | null;
+  rest_after_seconds: number | null;
   sequence_order: number;
 }
 
@@ -136,6 +137,7 @@ export interface FeedbackRow {
   coach_video_comment: string | null;
   skipped: boolean;
   skip_reason: string | null;
+  student_note: string | null;
 }
 
 export interface LogDetail {
@@ -145,6 +147,7 @@ export interface LogDetail {
     rpe: number | null;
     general_student_feedback: string | null;
     general_coach_feedback: string | null;
+    pump_photo_url: string | null;
     student_id: string;
     student_name: string;
     instagram_handle: string;

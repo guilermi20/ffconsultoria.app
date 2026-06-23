@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/Brand";
 import ShareableCard, {
   type ShareableCardData,
 } from "@/components/ShareableCard";
+import { PumpCard } from "@/components/PumpCard";
 import { fmtNumber, fmtWeight, weekdayFull } from "@/lib/format";
 import { pickEquivalence } from "@/lib/equivalences";
 
@@ -120,6 +121,26 @@ export default function LogResultPage({
                 ))}
             </div>
           )}
+
+          {/* Card do pump (foto + equivalência) */}
+          {data.log.pump_photo_url &&
+            (() => {
+              const eq = pickEquivalence(data.tonnage);
+              if (!eq) return null;
+              return (
+                <div className="mt-8">
+                  <h2 className="mb-4 text-center text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-500">
+                    📸 Card do pump
+                  </h2>
+                  <PumpCard
+                    photo={data.log.pump_photo_url}
+                    emoji={eq.emoji}
+                    phrase={eq.phrase}
+                    tonnage={data.tonnage}
+                  />
+                </div>
+              );
+            })()}
 
           {/* Card compartilhável */}
           <div className="mt-8">

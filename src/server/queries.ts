@@ -108,7 +108,7 @@ export async function getStudentDetail(id: string) {
     );
     for (const w of workouts) {
       w.exercises = await query(
-        `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
+        `SELECT id, exercise_name, sets, reps_range, rest_seconds, rest_after_seconds, notes, muscle_group, target_weight, sequence_order
          FROM workout_exercises WHERE workout_id=$1
          ORDER BY sequence_order`,
         [w.id]
@@ -154,7 +154,7 @@ export async function getWorkout(id: string) {
   if (!workout) return null;
 
   const exercises = await query(
-    `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
+    `SELECT id, exercise_name, sets, reps_range, rest_seconds, rest_after_seconds, notes, muscle_group, target_weight, sequence_order
      FROM workout_exercises WHERE workout_id=$1
      ORDER BY sequence_order`,
     [id]
@@ -166,7 +166,7 @@ export async function getWorkout(id: string) {
 export async function getLogDetail(id: string) {
   const log = await queryOne(
     `SELECT wl.id, wl.completed_at, wl.rpe,
-            wl.general_student_feedback, wl.general_coach_feedback,
+            wl.general_student_feedback, wl.general_coach_feedback, wl.pump_photo_url,
             u.id AS student_id, u.name AS student_name, u.instagram_handle,
             w.id AS workout_id, w.target_focus, w.day_sequence,
             tp.title AS plan_title
@@ -183,7 +183,7 @@ export async function getLogDetail(id: string) {
     `SELECT ef.id, we.exercise_name, we.sets, we.reps_range, we.sequence_order, we.muscle_group, we.target_weight,
             ef.weight_used, ef.reps_performed,
             ef.video_url, ef.video_status, ef.coach_video_comment,
-            ef.skipped, ef.skip_reason
+            ef.skipped, ef.skip_reason, ef.student_note
      FROM exercise_feedbacks ef
      JOIN workout_exercises we ON we.id = ef.workout_exercise_id
      WHERE ef.workout_log_id=$1
@@ -208,6 +208,7 @@ interface FeedbackInput {
   video_url?: string | null;
   skipped?: boolean | null;
   skip_reason?: string | null;
+  student_note?: string | null;
 }
 
 export async function createLog(input: {
@@ -215,6 +216,7 @@ export async function createLog(input: {
   workout_id: string;
   rpe?: number | null;
   general_student_feedback?: string | null;
+  pump_photo_url?: string | null;
   feedbacks?: FeedbackInput[];
 }): Promise<string> {
   const client = await pool.connect();
@@ -222,14 +224,15 @@ export async function createLog(input: {
     await client.query("BEGIN");
 
     const logRes = await client.query(
-      `INSERT INTO workout_logs (student_id, workout_id, rpe, general_student_feedback)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO workout_logs (student_id, workout_id, rpe, general_student_feedback, pump_photo_url)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
       [
         input.student_id,
         input.workout_id,
         input.rpe ?? null,
         input.general_student_feedback ?? null,
+        input.pump_photo_url ?? null,
       ]
     );
     const logId = logRes.rows[0].id as string;
@@ -237,8 +240,8 @@ export async function createLog(input: {
     for (const f of input.feedbacks ?? []) {
       await client.query(
         `INSERT INTO exercise_feedbacks
-           (workout_log_id, workout_exercise_id, weight_used, reps_performed, video_url, video_status, skipped, skip_reason)
-         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)`,
+           (workout_log_id, workout_exercise_id, weight_used, reps_performed, video_url, video_status, skipped, skip_reason, student_note)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8)`,
         [
           logId,
           f.workout_exercise_id,
@@ -247,6 +250,7 @@ export async function createLog(input: {
           f.video_url ?? null,
           f.skipped ?? false,
           f.skip_reason ?? null,
+          f.student_note ?? null,
         ]
       );
     }
@@ -544,7 +548,7 @@ export async function getTemplates() {
   );
   for (const t of templates) {
     t.exercises = await query(
-      `SELECT id, exercise_name, sets, reps_range, rest_seconds, notes, muscle_group, target_weight, sequence_order
+      `SELECT id, exercise_name, sets, reps_range, rest_seconds, rest_after_seconds, notes, muscle_group, target_weight, sequence_order
        FROM workout_exercises WHERE workout_id=$1 ORDER BY sequence_order`,
       [t.id]
     );

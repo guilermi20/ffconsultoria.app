@@ -376,6 +376,19 @@ function LogCard({ log }: { log: LogSummary }) {
                   </p>
                 </div>
               )}
+              {detail.data.log.pump_photo_url && (
+                <div className="mb-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={detail.data.log.pump_photo_url}
+                    alt="pump"
+                    className="h-48 rounded-lg object-cover"
+                  />
+                  <div className="mt-1 text-[10px] uppercase tracking-widest text-neutral-500">
+                    📸 Foto do pump
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {detail.data.feedbacks.map((f) => (
                   <div key={f.id} className="rounded-lg border border-neutral-900 p-3">
@@ -397,6 +410,11 @@ function LogCard({ log }: { log: LogSummary }) {
                       <p className="mt-1 text-[12px] italic text-amber-300/80">
                         Motivo: {f.skip_reason}
                         {f.reps_performed ? ` · fez ${f.reps_performed} reps` : ""}
+                      </p>
+                    )}
+                    {f.student_note && (
+                      <p className="mt-1 text-[12px] text-neutral-400">
+                        📝 {f.student_note}
                       </p>
                     )}
                     {f.video_url && (

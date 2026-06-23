@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     is_active BOOLEAN NOT NULL DEFAULT true,
     goal TEXT,
+    phone VARCHAR(40),
+    onboarded BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -75,6 +77,7 @@ CREATE TABLE IF NOT EXISTS workout_exercises (
     notes TEXT,
     muscle_group VARCHAR(40),
     target_weight NUMERIC(6,2),
+    rest_after_seconds INT,
     sequence_order INT NOT NULL
 );
 
@@ -99,7 +102,8 @@ CREATE TABLE IF NOT EXISTS workout_logs (
     completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     rpe INT CHECK (rpe BETWEEN 1 AND 10),
     general_student_feedback TEXT,
-    general_coach_feedback TEXT
+    general_coach_feedback TEXT,
+    pump_photo_url TEXT
 );
 
 -- ---------------------------------------------------------------------
@@ -115,7 +119,8 @@ CREATE TABLE IF NOT EXISTS exercise_feedbacks (
     video_status video_status DEFAULT 'pending',
     coach_video_comment TEXT,
     skipped BOOLEAN DEFAULT false,
-    skip_reason TEXT
+    skip_reason TEXT,
+    student_note TEXT
 );
 
 -- ---------------------------------------------------------------------
@@ -125,10 +130,15 @@ CREATE TABLE IF NOT EXISTS exercise_feedbacks (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(40);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS muscle_group VARCHAR(40);
 ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS target_weight NUMERIC(6,2);
+ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS rest_after_seconds INT;
 ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skipped BOOLEAN DEFAULT false;
 ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS student_note TEXT;
+ALTER TABLE workout_logs ADD COLUMN IF NOT EXISTS pump_photo_url TEXT;
 
 -- ---------------------------------------------------------------------
 -- Índices úteis para o painel/consultas do demo
