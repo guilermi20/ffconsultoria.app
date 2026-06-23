@@ -140,6 +140,27 @@ Todos os usuários usam a senha de demo `teamff123` (hash **bcrypt real** no see
 
 ---
 
+## 🚀 Checklist de produção
+
+A plataforma já tem o necessário pra ir ao ar. Antes de abrir para usuários reais:
+
+1. **Migração sem perder dados.** Para aplicar mudanças de schema em um banco com
+   dados reais, **NÃO use o seed** (ele dá `TRUNCATE`). Use:
+   ```
+   https://SEU-APP.vercel.app/api/admin/migrate?token=SEU_TOKEN
+   ```
+   Roda só `CREATE/ALTER ... IF NOT EXISTS` (idempotente, **preserva tudo**).
+2. **Seed bloqueado em produção.** O `/api/admin/seed` (destrutivo) só roda se
+   `SEED_ENABLED=true`. Em produção, deixe **sem** essa variável.
+3. **`AUTH_SECRET`** definido (segredo forte) — confira em `/api/health` (`AUTH_SECRET: true`).
+4. **`MIGRATE_TOKEN`/`SEED_TOKEN`** próprios (não usar o token padrão do repositório).
+5. **Senha de cada aluno** definida no 1º acesso (onboarding já pede). Crie os alunos
+   pelo painel; eles trocam a senha no onboarding.
+6. **Storage real (R2/S3)** para vídeos e foto do pump (hoje stub/Data URL — ok p/ MVP,
+   troque antes de escalar).
+
+Diagnóstico rápido: `/api/health` mostra `db`, `seeded`, e o estado de cada env.
+
 ## 🔌 Endpoints da API (`/api`, mesma origem)
 
 | Método  | Rota                              | Descrição                                  |

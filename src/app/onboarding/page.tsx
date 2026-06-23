@@ -63,6 +63,7 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState("");
   const [ig, setIg] = useState("");
   const [goal, setGoal] = useState("");
+  const [password, setPassword] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export default function OnboardingPage() {
         instagram_handle: ig,
         avatar_url: avatar,
         goal,
+        password: password || null,
         onboarded: true,
       });
       router.replace(`/aluno/${profile?.id}`);
@@ -143,6 +145,7 @@ export default function OnboardingPage() {
             <Input label="Telefone / WhatsApp" value={phone} onChange={setPhone} placeholder="(11) 90000-0000" />
             <Input label="Instagram" value={ig} onChange={setIg} placeholder="@voce" />
             <Input label="Sua meta" value={goal} onChange={setGoal} placeholder="Ex.: Ganhar 5kg de massa" />
+            <Input label="Crie uma senha (opcional)" value={password} onChange={setPassword} type="password" placeholder="mín. 4 caracteres" />
           </div>
           {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
         </div>

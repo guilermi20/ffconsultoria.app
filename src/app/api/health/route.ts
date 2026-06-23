@@ -13,6 +13,9 @@ export async function GET() {
   const env = {
     DATABASE_URL: Boolean(process.env.DATABASE_URL),
     POSTGRES_URL: Boolean(process.env.POSTGRES_URL),
+    AUTH_SECRET: Boolean(process.env.AUTH_SECRET),
+    seed_enabled:
+      process.env.SEED_ENABLED === "true" || process.env.NODE_ENV !== "production",
   };
 
   let db: "up" | "down" = "down";

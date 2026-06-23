@@ -408,8 +408,14 @@ export async function updateOwnProfile(
     avatar_url?: string | null;
     goal?: string | null;
     onboarded?: boolean | null;
+    password?: string | null;
   }
 ) {
+  // Troca de senha (1º acesso) — opcional.
+  if (input.password && input.password.length >= 4) {
+    const hash = await bcrypt.hash(input.password, 10);
+    await query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, id]);
+  }
   return queryOne(
     `UPDATE users SET
         name             = COALESCE($2, name),

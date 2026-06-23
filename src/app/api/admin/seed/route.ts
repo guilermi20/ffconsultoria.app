@@ -37,6 +37,19 @@ async function handle(req: NextRequest) {
       { status: 401 }
     );
   }
+  // Seed é DESTRUTIVO (TRUNCATE). Em produção fica bloqueado por padrão —
+  // para migrar o schema sem apagar dados, use /api/admin/migrate.
+  const enabled =
+    process.env.SEED_ENABLED === "true" || process.env.NODE_ENV !== "production";
+  if (!enabled) {
+    return NextResponse.json(
+      {
+        error:
+          "Seed desabilitado em produção (apaga dados). Para migrar o schema sem perder dados use /api/admin/migrate. Para semear demo, defina SEED_ENABLED=true.",
+      },
+      { status: 403 }
+    );
+  }
   try {
     const counts = await runSeed();
     return NextResponse.json({
