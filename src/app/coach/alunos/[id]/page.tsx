@@ -86,6 +86,16 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
               <h2 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-500">
                 🏋️ Treinos do plano
               </h2>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-900 bg-neutral-950 px-3 py-2">
+                <span className="text-xs text-neutral-400">
+                  📋 {data.activePlan ? data.activePlan.title : "Nenhum plano ativo"}
+                </span>
+                <AddPlanInline
+                  studentId={params.id}
+                  hasPlan={!!data.activePlan}
+                  onChanged={refetch}
+                />
+              </div>
               <div className="space-y-4">
                 {data.workouts.map((w) => (
                   <WorkoutEditorCard key={w.id} workout={w} onChanged={refetch} />
@@ -108,6 +118,69 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         )}
       </div>
     </CoachShell>
+  );
+}
+
+function AddPlanInline({
+  studentId,
+  hasPlan,
+  onChanged,
+}: {
+  studentId: string;
+  hasPlan: boolean;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (!title.trim()) return;
+    setBusy(true);
+    try {
+      await apiSend(`/api/students/${studentId}/plans`, "POST", { title });
+      setTitle("");
+      setOpen(false);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-md bg-red-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white hover:bg-red-500"
+      >
+        {hasPlan ? "Novo plano ativo" : "Criar plano ativo"}
+      </button>
+    );
+  }
+  return (
+    <div className="flex w-full flex-wrap items-center gap-2">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Título do plano (ex.: Bloco de Força — 6 semanas)"
+        className="flex-1 rounded-md border border-neutral-800 bg-black px-2 py-1.5 text-sm focus:border-neutral-500 focus:outline-none"
+      />
+      <button
+        onClick={save}
+        disabled={busy}
+        className="rounded-md bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-black hover:bg-neutral-200 disabled:opacity-50"
+      >
+        {busy ? "…" : "Salvar"}
+      </button>
+      <button onClick={() => setOpen(false)} className="text-[11px] text-neutral-500 hover:text-white">
+        cancelar
+      </button>
+      {hasPlan && (
+        <span className="w-full text-[10px] text-amber-400">
+          ⚠️ Criar um novo plano desativa o plano atual.
+        </span>
+      )}
+    </div>
   );
 }
 

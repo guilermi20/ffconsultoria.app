@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { pool, query, queryOne } from "./db";
 
 // =====================================================================
@@ -276,6 +277,54 @@ export async function setLogCoachFeedback(id: string, feedback: string) {
      WHERE id=$2 RETURNING id, general_coach_feedback`,
     [feedback, id]
   );
+}
+
+// --- Criar aluno / plano (coach) -----------------------------------------
+export async function createStudent(input: {
+  name: string;
+  email: string;
+  instagram_handle?: string | null;
+  password?: string | null;
+}) {
+  const hash = await bcrypt.hash(input.password || "teamff123", 10);
+  return queryOne(
+    `INSERT INTO users (name, email, password_hash, role, instagram_handle)
+     VALUES ($1, $2, $3, 'student', $4)
+     RETURNING id, name, email, instagram_handle`,
+    [
+      input.name.trim(),
+      input.email.toLowerCase().trim(),
+      hash,
+      input.instagram_handle?.trim() || "@teamff.consultoria",
+    ]
+  );
+}
+
+export async function createActivePlan(
+  studentId: string,
+  input: { title: string; description?: string | null }
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Só um plano ativo por vez.
+    await client.query(
+      `UPDATE training_plans SET is_active=false WHERE student_id=$1`,
+      [studentId]
+    );
+    const r = await client.query(
+      `INSERT INTO training_plans (student_id, title, description, is_active)
+       VALUES ($1, $2, $3, true) RETURNING id, title`,
+      [studentId, input.title.trim(), input.description?.trim() || null]
+    );
+    await client.query("COMMIT");
+    return r.rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // --- Agenda / calendário do coach ----------------------------------------
