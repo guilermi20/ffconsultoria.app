@@ -23,7 +23,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const user = await apiSend<{ id: string; role: string }>(
+      const user = await apiSend<{ id: string; role: string; onboarded: boolean }>(
         "/api/auth/login",
         "POST",
         { email, password }
@@ -34,10 +34,12 @@ export default function LoginPage() {
           ? new URLSearchParams(window.location.search).get("next")
           : null;
 
-      // Redirecionamento por papel: aluno sempre vai à própria área
-      // (mesmo que tenha entrado pelo card "Painel do Consultor").
+      // Redirecionamento por papel.
       if (user.role === "coach") {
         router.replace(next && next.startsWith("/") ? next : "/coach");
+      } else if (!user.onboarded) {
+        // Primeiro acesso do aluno → onboarding.
+        router.replace("/onboarding");
       } else {
         router.replace(`/aluno/${user.id}`);
       }

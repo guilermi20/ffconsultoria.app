@@ -36,8 +36,9 @@ export async function POST(req: Request) {
       role: Role;
       password_hash: string;
       is_active: boolean;
+      onboarded: boolean;
     }>(
-      `SELECT id, name, role, password_hash, is_active FROM users WHERE LOWER(email)=$1`,
+      `SELECT id, name, role, password_hash, is_active, onboarded FROM users WHERE LOWER(email)=$1`,
       [email]
     );
 
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
       id: user.id,
       name: user.name,
       role: user.role,
+      onboarded: user.onboarded,
     });
     res.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,

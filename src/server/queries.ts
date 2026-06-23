@@ -331,6 +331,51 @@ export async function createActivePlan(
   }
 }
 
+// --- Perfil próprio do usuário (self-service / onboarding) ----------------
+export async function getUserProfile(id: string) {
+  return queryOne(
+    `SELECT id, name, email, phone, instagram_handle, avatar_url, goal, onboarded, role
+     FROM users WHERE id=$1`,
+    [id]
+  );
+}
+
+export async function updateOwnProfile(
+  id: string,
+  input: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    instagram_handle?: string | null;
+    avatar_url?: string | null;
+    goal?: string | null;
+    onboarded?: boolean | null;
+  }
+) {
+  return queryOne(
+    `UPDATE users SET
+        name             = COALESCE($2, name),
+        email            = COALESCE($3, email),
+        phone            = COALESCE($4, phone),
+        instagram_handle = COALESCE($5, instagram_handle),
+        avatar_url       = COALESCE($6, avatar_url),
+        goal             = COALESCE($7, goal),
+        onboarded        = COALESCE($8, onboarded)
+      WHERE id=$1
+      RETURNING id, name, email, phone, instagram_handle, avatar_url, goal, onboarded`,
+    [
+      id,
+      input.name?.trim() || null,
+      input.email ? input.email.toLowerCase().trim() : null,
+      input.phone ?? null,
+      input.instagram_handle ?? null,
+      input.avatar_url ?? null,
+      input.goal ?? null,
+      typeof input.onboarded === "boolean" ? input.onboarded : null,
+    ]
+  );
+}
+
 // --- Agenda / calendário do coach ----------------------------------------
 export async function getCoachCalendar() {
   const schedule = await query(`
