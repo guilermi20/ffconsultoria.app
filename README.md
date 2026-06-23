@@ -28,8 +28,15 @@ postgres://USER:SENHA@ep-xxxx-pooler.sa-east-1.aws.neon.tech/teamff?sslmode=requ
 
 ### 2. Importe o repositório na Vercel
 - **New Project → Import** este repositório.
-- Em **Root Directory**, selecione a pasta **`frontend`** ⚠️ (passo essencial — o app fica nela).
-- Framework: **Next.js** (detectado automaticamente).
+- **Deixe o Root Directory no padrão (`./`).** O [`vercel.json`](vercel.json) na raiz já
+  direciona o build para o app Next em `frontend/` (ignorando `db/` e `backend/`).
+- Framework: **Next.js** (detectado automaticamente pelo `vercel.json`).
+
+> **Por que `vercel.json`?** O repositório tem mais de uma pasta (`frontend/`, `backend/`,
+> `db/`). O `vercel.json` (campo `builds`) diz à Vercel **qual** app construir — sem ele,
+> a Vercel não saberia que o app está em `frontend/`.
+>
+> _Alternativa sem `vercel.json`:_ remova-o e, no painel, defina **Root Directory = `frontend`**.
 
 ### 3. Configure a variável de ambiente
 Em **Settings → Environment Variables**, adicione:
@@ -140,10 +147,11 @@ Senha fictícia (não há tela de login no demo): `teamff123` · coach: `coach@t
 
 ```
 .
+├── vercel.json                 # aponta o build da Vercel para frontend/
 ├── db/
 │   ├── schema.sql              # modelagem PostgreSQL (do documento)
 │   └── seed.sql                # dados de exemplo
-├── frontend/                   # ⭐ app deployado na Vercel (Root Directory)
+├── frontend/                   # ⭐ app deployado na Vercel (via vercel.json)
 │   ├── scripts/setup-db.mjs    # carrega schema + seed no DATABASE_URL
 │   └── src/
 │       ├── app/                # páginas + app/api/* (Route Handlers)
