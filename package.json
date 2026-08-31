@@ -1,33 +1,36 @@
 {
-  "name": "teamff-consultoria",
+  "name": "ff-training",
   "version": "1.0.0",
-  "description": "TEAM FF | CONSULTORIA — App Next.js 14 (UI + API + Auth + Postgres)",
   "private": true,
+  "description": "FF Training — Módulo 1: Check-in semanal",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start",
-    "db:setup": "node scripts/setup-db.mjs"
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "db:dev": "node scripts/dev-db.mjs",
+    "db:setup": "node scripts/setup-db.mjs",
+    "db:demo": "node scripts/setup-db.mjs --demo",
+    "check:sql": "node scripts/check-sql.mjs",
+    "check:e2e": "node scripts/check-e2e.mjs"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "html-to-image": "^1.11.11",
-    "jose": "^5.9.6",
-    "next": "14.2.35",
-    "pg": "^8.12.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "next": "^16.3.3",
+    "pg": "8.13.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20.14.10",
-    "@types/pg": "^8.11.6",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "autoprefixer": "^10.4.19",
-    "dotenv": "^16.4.5",
-    "postcss": "^8.4.39",
-    "tailwindcss": "^3.4.6",
-    "typescript": "^5.5.3"
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@types/node": "22.10.5",
+    "@types/pg": "8.11.10",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "autoprefixer": "10.4.20",
+    "eslint-config-next": "^16.3.3",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.7.3"
   }
 }

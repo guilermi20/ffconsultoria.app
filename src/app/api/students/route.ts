@@ -1,45 +1,52 @@
 import { NextResponse } from "next/server";
-import { listStudents, createStudent } from "@/server/queries";
-import { requireCoach } from "@/server/session";
+import { one, query } from "@/server/db";
+import { newStudentToken } from "@/server/auth";
+import { coachFromRequest } from "@/server/session";
+import { normalizePhone } from "@/server/whatsapp";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
-    return NextResponse.json(await listStudents());
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erro" },
-      { status: 500 }
-    );
+  if (!(await coachFromRequest())) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  const students = await query(
+    `SELECT id, name, email, phone, token, status, started_at::text AS started_at
+       FROM students ORDER BY (status = 'ativo') DESC, name`
+  );
+  return NextResponse.json({ students });
 }
 
-export async function POST(req: Request) {
-  if (!(await requireCoach())) {
-    return NextResponse.json({ error: "Acesso restrito ao coach." }, { status: 403 });
+export async function POST(request: Request) {
+  if (!(await coachFromRequest())) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
-  const body = await req.json().catch(() => ({}));
-  if (!body?.name || !body?.email) {
-    return NextResponse.json(
-      { error: "Informe nome e e-mail." },
-      { status: 400 }
-    );
+
+  const body = (await request.json().catch(() => null)) as Record<
+    string,
+    string | undefined
+  > | null;
+
+  const name = body?.name?.trim();
+  if (!name) {
+    return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
   }
-  try {
-    const student = await createStudent(body);
-    return NextResponse.json(student, { status: 201 });
-  } catch (e: any) {
-    if (e?.code === "23505") {
-      return NextResponse.json(
-        { error: "Já existe um usuário com esse e-mail." },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erro" },
-      { status: 500 }
-    );
-  }
+
+  const student = await one(
+    `INSERT INTO students (name, email, phone, token, status, started_at, goal, notes)
+     VALUES ($1, $2, $3, $4, COALESCE($5, 'ativo'), COALESCE($6::date, CURRENT_DATE), $7, $8)
+     RETURNING id, name, token`,
+    [
+      name,
+      body?.email?.trim() || null,
+      normalizePhone(body?.phone) ?? body?.phone?.trim() ?? null,
+      newStudentToken(),
+      body?.status || null,
+      body?.started_at || null,
+      body?.goal?.trim() || null,
+      body?.notes?.trim() || null,
+    ]
+  );
+
+  return NextResponse.json({ student }, { status: 201 });
 }

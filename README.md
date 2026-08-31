@@ -1,213 +1,177 @@
-# TEAM FF | CONSULTORIA — Demo MVP v1
+# FF Training — Módulo 1: Check-in semanal
 
-> **Performance. Estética. Disciplina.** — Plataforma de consultoria de treino (Hybrid Training).
-> Head Coach: **Fábio Filho** · [@teamff.consultoria](https://instagram.com/teamff.consultoria)
+Painel de gestão da FF Consultoria. O Módulo 1 entrega o ciclo completo do
+check-in semanal: cadastro dos alunos, formulário configurável, link pessoal de
+cada aluno, disparo semanal por WhatsApp, painel do coach e gráficos de evolução
+— por aluno e da turma.
 
-App **full-stack** seguindo o documento _Arquitetura Geral V2_, já populado com
-**dados de exemplo** e **otimizado para deploy na Vercel** (deploy único).
-
-- **App único Next.js 14** (App Router) — UI + **API em `/api`** via Route Handlers.
-- **Tailwind CSS** — tema _All Black_ estrito.
-- **PostgreSQL serverless** (Neon / Vercel Postgres / Supabase) via `DATABASE_URL`.
-- **Autenticação** — login com `bcrypt` + sessão por cookie JWT (`jose`) + middleware
-  com controle de acesso por papel (coach / aluno).
-- **Storage:** stub de _Presigned URL_ (R2/S3) — contrato pronto, sem upload real no demo.
-
-> A API roda na **mesma origem** do front (sem CORS, sem URL para configurar).
-> Não há servidor separado: tudo sobe como **funções serverless** na Vercel.
+Identidade **All Black**: fundo preto, tipografia Inter, vermelho como único
+acento. Wordmark `TEAM FF · Consultoria`.
 
 ---
 
-## ▲ Deploy na Vercel (passo a passo)
+## Rodando local
 
-### 1. Crie um PostgreSQL serverless
-Use **[Neon](https://neon.tech)** (grátis) ou **Vercel Postgres** (Storage → Create → Postgres).
-Copie a **connection string com pooler** (no Neon, o host contém `-pooler`), algo como:
-
-```
-postgres://USER:SENHA@ep-xxxx-pooler.sa-east-1.aws.neon.tech/teamff?sslmode=require
-```
-
-### 2. Importe o repositório na Vercel
-- **New Project → Import** este repositório.
-- **Framework:** Next.js (detectado automaticamente — o app está na **raiz**).
-- **Root Directory:** deixe no padrão (`./`). Não precisa de `vercel.json`.
-
-> ✅ O repositório é um **único app Next.js na raiz** (sem subpastas de serviço), então
-> a Vercel reconhece um projeto só. Se o seletor de _Application Preset_ aparecer,
-> escolha **Next.js** (não “Services”).
-
-### 3. Configure a variável de ambiente
-Em **Settings → Environment Variables**, adicione:
-
-| Nome                    | Valor                                             |
-| ----------------------- | ------------------------------------------------- |
-| `DATABASE_URL`          | a connection string do passo 1                    |
-| `AUTH_SECRET`           | segredo do JWT _(opcional; recomendado em prod)_  |
-| `PUBLIC_MEDIA_BASE_URL` | `https://media.teamff.dev` _(opcional, stub)_     |
-
-> Não defina `NEXT_PUBLIC_API_URL` — a API é servida em `/api` na mesma origem.
-
-### 4. Deploy
-Clique em **Deploy**. Ao final você terá a URL pública (ex.: `https://teamff.vercel.app`).
-
-### 5. Carregue os dados de exemplo (uma vez)
-Duas opções:
-
-**a) Via SQL editor do Neon/Supabase** — cole e rode o conteúdo de
-[`db/schema.sql`](db/schema.sql) e depois [`db/seed.sql`](db/seed.sql).
-
-**b) Pelo terminal** (a partir da máquina local, apontando para o banco cloud):
+Precisa de Node 20+ e um Postgres 13+. Se não tiver Postgres na máquina, o
+projeto sobe um efêmero (PGlite) sem Docker e sem instalar nada.
 
 ```bash
-# Windows PowerShell:  $env:DATABASE_URL="postgres://...sslmode=require"
-# bash:                export DATABASE_URL="postgres://...sslmode=require"
 npm install
-npm run db:setup
+cp .env.local.example .env.local     # ajuste DATABASE_URL e AUTH_SECRET
+
+# terminal 1 — Postgres de desenvolvimento (opcional, se já tiver um, pule)
+node scripts/dev-db.mjs
+
+# terminal 2 — schema + coach + perguntas padrão + base de demonstração
+npm run db:demo
+
+# terminal 3
+npm run dev
 ```
 
-Pronto. Acesse a URL da Vercel e comece pela home. ✅
+Abra http://localhost:3000 e entre com as credenciais que o `db:demo` imprime
+(por padrão `fabio@ffconsultoria.com` / `ff2026` — defina `COACH_EMAIL` e
+`COACH_PASSWORD` no `.env.local` para trocar).
 
-> Verifique a saúde em `https://SEU-APP.vercel.app/api/health` → deve responder `"db":"up"`.
+> Usando o Postgres de desenvolvimento, mantenha `DB_POOL_MAX=1` no
+> `.env.local`: o PGlite aceita uma conexão por vez. Com um Postgres de verdade,
+> remova a variável.
+
+### Scripts
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Sobe a aplicação em modo de desenvolvimento |
+| `npm run build` / `npm start` | Build e execução em produção |
+| `npm run db:setup` | Aplica o schema, cria o coach e as perguntas padrão |
+| `npm run db:demo` | O mesmo, mais uma base de demonstração (8 alunos, 14 semanas) |
+| `npm run db:dev` | Postgres efêmero local (PGlite), sem Docker |
+| `npm run check:sql` | Valida schema e consultas contra um Postgres real |
+| `npm run check:e2e` | Verificação ponta a ponta com a aplicação rodando |
+
+`db:setup` é **não-destrutivo** e pode rodar quantas vezes precisar. Para zerar
+os dados, use `node scripts/setup-db.mjs --demo --reset`.
 
 ---
 
-## 🐳 Rodar localmente com Docker (espelha a Vercel)
+## O que o Módulo 1 entrega
 
-Pré-requisito: **Docker Desktop**.
+**Coach**
 
-```bash
-docker compose up --build      # depois abra http://localhost:3000
+- **Painel da semana** — quem já respondeu e quem falta, taxa de resposta por
+  semana e a média da turma em cada métrica acompanhada.
+- **Check-ins** — todas as respostas da base, filtráveis por semana e por aluno,
+  com a resposta completa e espaço para a anotação do coach.
+- **Alunos** — cadastro dos alunos ativos, sequência de semanas respondidas e o
+  link pessoal de cada um.
+- **Perfil do aluno** — um gráfico de evolução por métrica e o histórico completo
+  de check-ins.
+- **Disparos de WhatsApp** — fila semanal com a mensagem já montada e o link
+  pessoal embutido.
+- **Perguntas do check-in** — o formulário é montado pelo coach: tipo, ordem,
+  obrigatoriedade e quais perguntas viram gráfico.
+- **Importar histórico** — CSV do Google Forms, com mapeamento de colunas.
+
+**Aluno** (sem senha, pelo link pessoal)
+
+- `/checkin/<token>` — responde o check-in. É o mesmo link todas as semanas.
+- `/aluno/<token>` — vê a própria evolução em gráficos e todas as respostas que
+  já enviou, desde que entrou na consultoria, com o retorno do coach.
+
+---
+
+## Perguntas do check-in
+
+As perguntas ficam no banco, não no código. O formulário do aluno, os gráficos e
+o importador são todos gerados a partir de `checkin_questions`.
+
+| Tipo | Uso | Vira gráfico? |
+|---|---|---|
+| `escala` | nota de 0 a 10 | sim |
+| `numero` | peso, número de treinos, medidas | sim |
+| `sim_nao` | dor, uso de suplemento | sim |
+| `escolha` | múltipla escolha | não |
+| `texto` / `texto_longo` | relato livre | não |
+
+Marcar uma pergunta como *acompanhar em gráfico* só é possível nos tipos
+numéricos — é o que alimenta as séries de evolução.
+
+Perguntas que já têm respostas não são apagadas, apenas arquivadas: o histórico
+que sustenta os gráficos fica preservado.
+
+---
+
+## WhatsApp
+
+O envio fica atrás de uma interface (`src/server/whatsapp.ts`). Trocar de
+provedor é trocar `WHATSAPP_PROVIDER`, sem mexer no resto da aplicação.
+
+| Valor | Comportamento |
+|---|---|
+| `manual` (padrão) | Monta a fila e gera o link `wa.me`; o coach clica e envia |
+| `evolution` | Evolution API / Z-API — exige `WHATSAPP_API_URL`, `WHATSAPP_API_TOKEN`, `WHATSAPP_INSTANCE` |
+| `cloud` | WhatsApp Cloud API (Meta) — exige conta business e template aprovado |
+
+A mensagem aceita `{nome}`, `{nome_completo}`, `{link}` e `{painel}`.
+
+Montar a fila também cria a semana como *pendente* no painel do coach, então
+quem não respondeu aparece na lista de cobrança mesmo sem nenhum envio.
+
+---
+
+## Importação do Google Forms
+
+No Forms: **Respostas → Vincular ao Sheets → Arquivo → Download → CSV**. Em
+*Importar histórico*, o app lê o cabeçalho, adivinha a coluna de data e a que
+identifica o aluno, e casa automaticamente as colunas que já correspondem a
+perguntas existentes. As demais podem virar perguntas novas ou ser ignoradas.
+
+- Datas aceitas: `DD/MM/AAAA [HH:MM]`, `AAAA-MM-DD` e ISO. Cada resposta cai na
+  semana (segunda-feira) da sua data.
+- Números aceitam vírgula decimal (`60,6` → `60.6`).
+- Alunos que ainda não existem podem ser criados na importação.
+- Reimportar a mesma planilha atualiza as respostas, não duplica check-ins.
+
+---
+
+## Produção
+
+1. Provisione um Postgres (Neon, Supabase, Railway) e aponte `DATABASE_URL`.
+   Não é preciso extensão: `gen_random_uuid()` é nativo do Postgres 13+.
+2. Defina um `AUTH_SECRET` longo e aleatório — ele assina o cookie de sessão.
+3. `NEXT_PUBLIC_APP_URL` precisa ser a URL pública, senão os links enviados aos
+   alunos apontam para `localhost`.
+4. Rode `npm run db:setup` uma vez (sem `--demo`) com `COACH_EMAIL` e
+   `COACH_PASSWORD` definidos.
+5. Remova `DB_POOL_MAX` do ambiente.
+
+O token do aluno é um segredo de URL: quem tem o link responde o check-in e vê o
+painel daquele aluno. Dá para invalidar e gerar outro pelo perfil do aluno.
+
+---
+
+## Estrutura
+
+```
+db/schema.sql            schema não-destrutivo
+scripts/setup-db.mjs     schema + coach + perguntas padrão + demo
+scripts/dev-db.mjs       Postgres efêmero local (PGlite)
+scripts/check-sql.mjs    valida schema e consultas
+scripts/check-e2e.mjs    verificação ponta a ponta
+src/server/              banco, sessão, consultas, CSV, WhatsApp
+src/components/          UI, gráficos SVG, formulários
+src/app/coach/           painel do coach (protegido)
+src/app/checkin/[token]  formulário do aluno
+src/app/aluno/[token]    painel do aluno
 ```
 
-Sobe **PostgreSQL** (auto-semeado com schema + seed) + **Next.js** (UI + API).
-Resetar o banco: `docker compose down -v && docker compose up --build`.
-
-## 🛠️ Rodar localmente sem Docker
-
-Requer **Node 20+** e um **PostgreSQL** local.
-
-```bash
-# 1) crie o banco e carregue os dados
-createdb teamff
-cp .env.local.example .env.local   # ajuste DATABASE_URL
-npm install
-npm run db:setup                   # roda schema.sql + seed.sql
-
-# 2) suba o app (UI + API)
-npm run dev                                         # http://localhost:3000
-```
+Os gráficos são SVG inline, sem biblioteca. A paleta de dados foi validada para
+contraste e para daltonismo sobre a superfície preta.
 
 ---
 
-## 🔐 Login
+## Próximos módulos
 
-A plataforma exige autenticação. Página de **`/login`** (All Black) com atalhos de
-demonstração. **Senha de todos:** `teamff123`.
-
-| Papel | E-mail | Vai para |
-| ----- | ------ | -------- |
-| Coach | `coach@teamff.consultoria` | Painel do Consultor (`/coach`) |
-| Aluno | `lucas.andrade@gmail.com` (e os demais) | Sua Área do Aluno (`/aluno/<id>`) |
-
-O middleware protege as rotas: aluno não acessa o painel do coach, e só enxerga a
-própria área. Sair: botão no topo. _(Defina `AUTH_SECRET` na Vercel para endurecer o JWT.)_
-
----
-
-## 🎬 Roteiro de demonstração (para o cliente)
-
-1. **Login** (`/login`) — toque em **Coach (Fábio)** → senha já preenchida → **Entrar**.
-2. **Painel do Consultor** (`/coach`) — KPIs, lista de alunos e **fila de vídeos**.
-3. **Detalhe do aluno** (_Lucas Andrade_ ou _Bruno Tavares_) — plano ativo, abra um treino
-   registrado e **escreva um feedback de execução** num vídeo pendente → vira **✓ Revisado**.
-4. **Área do Aluno** — saia e entre como **Aluno — Lucas**: treino do dia, **registre cargas/RPE**
-   e **anexe um vídeo** (simulado). _(Como coach, dá para pré-visualizar em `/aluno`.)_
-5. **Card de Stories** — ao concluir, gere o **PNG estilo Strava com fundo transparente**.
-
-> 💡 Melhores alunos para a revisão de vídeos: **Lucas Andrade** e **Bruno Tavares**.
-
----
-
-## 👥 Dados de exemplo (seed)
-
-- **1 coach** (Fábio Filho) · **6 alunos** com objetivos distintos.
-- **7 planos** (1 arquivado) · **18 treinos** · **90 exercícios**.
-- **9 sessões registradas** com RPE e relato · **45 feedbacks**.
-- **Vídeos:** 5 revisados (com comentário do coach) + 8 pendentes (fila de revisão).
-
-Todos os usuários usam a senha de demo `teamff123` (hash **bcrypt real** no seed).
-
----
-
-## 🚀 Checklist de produção
-
-A plataforma já tem o necessário pra ir ao ar. Antes de abrir para usuários reais:
-
-1. **Migração sem perder dados.** Para aplicar mudanças de schema em um banco com
-   dados reais, **NÃO use o seed** (ele dá `TRUNCATE`). Use:
-   ```
-   https://SEU-APP.vercel.app/api/admin/migrate?token=SEU_TOKEN
-   ```
-   Roda só `CREATE/ALTER ... IF NOT EXISTS` (idempotente, **preserva tudo**).
-2. **Seed bloqueado em produção.** O `/api/admin/seed` (destrutivo) só roda se
-   `SEED_ENABLED=true`. Em produção, deixe **sem** essa variável.
-3. **`AUTH_SECRET`** definido (segredo forte) — confira em `/api/health` (`AUTH_SECRET: true`).
-4. **`MIGRATE_TOKEN`/`SEED_TOKEN`** próprios (não usar o token padrão do repositório).
-5. **Senha de cada aluno** definida no 1º acesso (onboarding já pede). Crie os alunos
-   pelo painel; eles trocam a senha no onboarding.
-6. **Storage real (R2/S3)** para vídeos e foto do pump (hoje stub/Data URL — ok p/ MVP,
-   troque antes de escalar).
-
-Diagnóstico rápido: `/api/health` mostra `db`, `seeded`, e o estado de cada env.
-
-## 🔌 Endpoints da API (`/api`, mesma origem)
-
-| Método  | Rota                              | Descrição                                  |
-| ------- | --------------------------------- | ------------------------------------------ |
-| `GET`   | `/api/health`                     | Status do serviço + conexão + seeded       |
-| `POST`  | `/api/auth/login`                 | Login (bcrypt) → cookie de sessão (JWT)    |
-| `POST`  | `/api/auth/logout`                | Encerra a sessão                           |
-| `GET`   | `/api/auth/me`                    | Usuário autenticado atual                  |
-| `GET`   | `/api/coach/overview`             | KPIs + fila de vídeos + atividade recente  |
-| `GET`   | `/api/students`                   | Lista de alunos (resumo)                   |
-| `GET`   | `/api/students/:id`               | Aluno + plano ativo + treinos + logs       |
-| `GET`   | `/api/workouts/:id`               | Treino + exercícios                        |
-| `GET`   | `/api/logs/:id`                   | Detalhe do log (alimenta o ShareableCard)  |
-| `POST`  | `/api/logs`                       | Registrar um treino (aluno)                |
-| `PATCH` | `/api/logs/:id`                   | Feedback geral do coach na sessão          |
-| `PATCH` | `/api/feedbacks/:id/review`       | Coach revisa um vídeo de execução          |
-| `POST`  | `/api/uploads/presign`            | Presigned URL (stub R2/S3)                 |
-
----
-
-## 📁 Estrutura
-
-App **único Next.js na raiz** (deploy direto na Vercel, sem configuração extra):
-
-```
-.
-├── package.json                # app Next.js (raiz = root do projeto na Vercel)
-├── next.config.js
-├── db/
-│   ├── schema.sql              # modelagem PostgreSQL (do documento)
-│   └── seed.sql                # dados de exemplo
-├── scripts/setup-db.mjs        # carrega schema + seed no DATABASE_URL
-├── src/
-│   ├── middleware.ts           # proteção de rotas + RBAC (coach/aluno)
-│   ├── app/
-│   │   ├── login/              # tela de login (All Black)
-│   │   ├── api/auth/           # login / logout / me
-│   │   └── api/*               # demais Route Handlers = a API
-│   ├── server/                 # db.ts (pool) + queries.ts + auth.ts (JWT)
-│   ├── components/             # ShareableCard, Brand, AuthControls
-│   └── lib/                    # api client (fetch relativo) + format
-└── docker-compose.yml          # db + app (espelha a Vercel localmente)
-```
-
-> ℹ️ A versão inicial tinha um backend Fastify separado em `backend/`. Ele foi
-> **removido** (a API agora roda integrada no Next.js em `app/api/*`) para a Vercel
-> reconhecer um único serviço. O código continua no histórico do git, se precisar.
-
-> ⚠️ Ambiente de **demonstração**: o upload de mídia é simulado (stub de presigned
-> URL, sem R2/S3 real) e o hardening de produção foi simplificado para foco no produto.
+- **Módulo 2** — aplicativo móvel (iOS/Android), treinos do aluno e criação de
+  treinos pelo coach, integração com Strava e wearables.
+- **Módulo 3** — geração de treinos por IA via conector exclusivo.

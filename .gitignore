@@ -1,20 +1,15 @@
-# Dependências
-node_modules/
-
-# Next.js
-.next/
-out/
-next-env.d.ts
-
-# TypeScript build cache
-*.tsbuildinfo
-
-# Env
+node_modules
+.next
+out
+build
 .env
 .env.local
-.env*.local
-
-# Logs / SO
 *.log
 .DS_Store
-Thumbs.db
+next-env.d.ts
+tsconfig.tsbuildinfo
+/uploads
+.pglite/
+
+# Proposta comercial (contém valores) — mantida fora do repositório
+proposta-*.pdf

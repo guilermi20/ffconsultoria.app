@@ -11,7 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "TEAM FF | CONSULTORIA",
   description:
-    "Performance. Estética. Disciplina. Plataforma de consultoria de treino — Hybrid Training.",
+    "Performance. Estética. Disciplina. Check-in semanal e acompanhamento de alunos.",
 };
 
 export const viewport: Viewport = {
@@ -27,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={inter.variable}>
-      <body className="bg-black text-white font-sans antialiased min-h-screen">
+      <body className="min-h-screen bg-black font-sans text-white antialiased">
         {children}
       </body>
     </html>

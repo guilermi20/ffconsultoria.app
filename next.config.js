@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Evita o prompt interativo de setup do ESLint durante o build do demo.
-  // (A checagem de tipos TypeScript continua ativa.)
-  eslint: { ignoreDuringBuilds: true },
+  poweredByHeader: false,
+  // Não gerar AGENTS.md/CLAUDE.md automaticamente no repo.
+  agentRules: false,
 };
 
 module.exports = nextConfig;

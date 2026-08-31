@@ -1,56 +1,46 @@
-import { Pool } from "pg";
+import { Pool, type QueryResultRow } from "pg";
 
-/**
- * Pool do PostgreSQL otimizado para ambiente serverless (Vercel).
- *
- * - Reaproveita o mesmo Pool entre invocações "quentes" da função (cache no
- *   objeto global) — evita estourar o limite de conexões do Postgres.
- * - SSL é ligado automaticamente quando o host NÃO é local (Neon, Vercel
- *   Postgres, Supabase exigem SSL).
- * - Use uma connection string COM POOLER (ex.: host "-pooler" do Neon) na
- *   Vercel para escalar melhor.
- */
-
-const connectionString =
-  process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "";
-
-function needsSsl(conn: string): boolean {
-  if (!conn) return false;
-  if (/sslmode=disable/.test(conn)) return false;
-  if (/localhost|127\.0\.0\.1|@db:/.test(conn)) return false;
-  return true;
+declare global {
+  // eslint-disable-next-line no-var
+  var __ffPool: Pool | undefined;
 }
 
-const globalForPg = globalThis as unknown as { __teamffPool?: Pool };
+function createPool() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL não definida. Copie .env.local.example para .env.local."
+    );
+  }
+  const needsSsl =
+    /sslmode=require/.test(connectionString) ||
+    /neon\.tech|supabase\.co|render\.com|railway\.app/.test(connectionString);
 
-export const pool =
-  globalForPg.__teamffPool ??
-  new Pool({
+  return new Pool({
     connectionString,
-    // Pequeno por instância: muitas instâncias serverless × poucas conexões.
-    max: 3,
-    idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 10_000,
-    ssl: needsSsl(connectionString)
-      ? { rejectUnauthorized: false }
-      : undefined,
+    // O Postgres de desenvolvimento (scripts/dev-db.mjs) aceita uma conexão
+    // por vez; em produção o padrão de 5 vale.
+    max: Number(process.env.DB_POOL_MAX ?? 5),
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPg.__teamffPool = pool;
 }
 
-export async function query<T = any>(
+export function pool(): Pool {
+  if (!global.__ffPool) global.__ffPool = createPool();
+  return global.__ffPool;
+}
+
+export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params: any[] = []
+  params: unknown[] = []
 ): Promise<T[]> {
-  const res = await pool.query(text, params);
-  return res.rows as T[];
+  const res = await pool().query<T>(text, params);
+  return res.rows;
 }
 
-export async function queryOne<T = any>(
+export async function one<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params: any[] = []
+  params: unknown[] = []
 ): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] ?? null;

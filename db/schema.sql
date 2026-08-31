@@ -1,149 +1,114 @@
--- =====================================================================
--- TEAM FF | CONSULTORIA  --  Schema PostgreSQL (MVP v1)
--- Fiel ao documento "Arquitetura Geral V2"
--- =====================================================================
+-- FF Training — Módulo 1: Check-in semanal
+-- Schema não-destrutivo: pode ser reaplicado com segurança (CREATE ... IF NOT EXISTS).
 
--- Extensão para gen_random_uuid() (Postgres 13+ já tem pgcrypto disponível)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() é nativo do Postgres desde a 13 — não exige extensão.
 
--- ---------------------------------------------------------------------
--- Tipos enumerados
--- ---------------------------------------------------------------------
-DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('coach', 'student');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-    CREATE TYPE video_status AS ENUM ('pending', 'reviewed');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
--- ---------------------------------------------------------------------
--- users
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role user_role NOT NULL DEFAULT 'student',
-    instagram_handle VARCHAR(100) DEFAULT '@teamff.consultoria',
-    avatar_url TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    goal TEXT,
-    phone VARCHAR(40),
-    onboarded BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- ---------------------------------------------------------------------------
+-- Coach (acesso ao painel de gestão)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coaches (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          text NOT NULL,
+  email         text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------
--- training_plans
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS training_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- ---------------------------------------------------------------------------
+-- Alunos
+-- token: link fixo e pessoal do aluno (check-in + painel). Não muda por semana.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS students (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  email       text,
+  phone       text,
+  token       text NOT NULL UNIQUE,
+  status      text NOT NULL DEFAULT 'ativo'
+              CHECK (status IN ('ativo', 'pausado', 'inativo')),
+  started_at  date NOT NULL DEFAULT CURRENT_DATE,
+  birth_date  date,
+  goal        text,
+  notes       text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------
--- workouts
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS workouts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    training_plan_id UUID REFERENCES training_plans(id) ON DELETE CASCADE,
-    is_template BOOLEAN DEFAULT false,
-    template_title VARCHAR(255),
-    day_sequence INT NOT NULL,
-    target_focus VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE INDEX IF NOT EXISTS students_status_idx ON students (status, name);
+
+-- ---------------------------------------------------------------------------
+-- Perguntas do check-in — totalmente configuráveis pelo coach.
+-- O formulário do aluno e os gráficos são gerados a partir desta tabela.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS checkin_questions (
+  id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key       text NOT NULL UNIQUE,
+  label     text NOT NULL,
+  help      text,
+  type      text NOT NULL
+            CHECK (type IN ('escala', 'numero', 'texto', 'texto_longo', 'escolha', 'sim_nao')),
+  unit      text,
+  options   jsonb NOT NULL DEFAULT '[]'::jsonb,
+  min_value numeric,
+  max_value numeric,
+  required  boolean NOT NULL DEFAULT false,
+  track     boolean NOT NULL DEFAULT false,  -- entra nos gráficos de evolução
+  position  integer NOT NULL DEFAULT 0,
+  active    boolean NOT NULL DEFAULT true
 );
 
--- ---------------------------------------------------------------------
--- workout_exercises
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS workout_exercises (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workout_id UUID REFERENCES workouts(id) ON DELETE CASCADE,
-    exercise_name VARCHAR(255) NOT NULL,
-    sets INT NOT NULL,
-    reps_range VARCHAR(50) NOT NULL,
-    rest_seconds INT DEFAULT 90,
-    notes TEXT,
-    muscle_group VARCHAR(40),
-    target_weight NUMERIC(6,2),
-    rest_after_seconds INT,
-    sequence_order INT NOT NULL
+CREATE INDEX IF NOT EXISTS checkin_questions_pos_idx ON checkin_questions (active, position);
+
+-- ---------------------------------------------------------------------------
+-- Check-ins (um por aluno por semana). week_start = segunda-feira da semana.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS checkins (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id   uuid NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+  week_start   date NOT NULL,
+  status       text NOT NULL DEFAULT 'pendente'
+               CHECK (status IN ('pendente', 'respondido')),
+  source       text NOT NULL DEFAULT 'app'
+               CHECK (source IN ('app', 'import', 'manual')),
+  submitted_at timestamptz,
+  coach_note   text,
+  reviewed_at  timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (student_id, week_start)
 );
 
--- ---------------------------------------------------------------------
--- exercise_catalog  (biblioteca base de exercícios reaproveitável)
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS exercise_catalog (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    muscle_group VARCHAR(40) NOT NULL,
-    equipment VARCHAR(60),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE INDEX IF NOT EXISTS checkins_week_idx ON checkins (week_start DESC, status);
+CREATE INDEX IF NOT EXISTS checkins_student_idx ON checkins (student_id, week_start DESC);
+
+-- ---------------------------------------------------------------------------
+-- Respostas. num alimenta os gráficos; txt guarda o texto livre / escolha.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS checkin_answers (
+  checkin_id  uuid NOT NULL REFERENCES checkins (id) ON DELETE CASCADE,
+  question_id uuid NOT NULL REFERENCES checkin_questions (id) ON DELETE CASCADE,
+  num         numeric,
+  txt         text,
+  PRIMARY KEY (checkin_id, question_id)
 );
 
--- ---------------------------------------------------------------------
--- workout_logs
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS workout_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    workout_id UUID REFERENCES workouts(id),
-    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    rpe INT CHECK (rpe BETWEEN 1 AND 10),
-    general_student_feedback TEXT,
-    general_coach_feedback TEXT,
-    pump_photo_url TEXT
+-- ---------------------------------------------------------------------------
+-- Fila de disparo semanal de WhatsApp.
+-- O provedor real é plugável (ver src/server/whatsapp.ts).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS whatsapp_queue (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id   uuid NOT NULL REFERENCES students (id) ON DELETE CASCADE,
+  week_start   date NOT NULL,
+  phone        text,
+  message      text NOT NULL,
+  status       text NOT NULL DEFAULT 'pendente'
+               CHECK (status IN ('pendente', 'enviado', 'falhou', 'cancelado')),
+  provider     text,
+  provider_ref text,
+  error        text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  sent_at      timestamptz,
+  UNIQUE (student_id, week_start)
 );
 
--- ---------------------------------------------------------------------
--- exercise_feedbacks
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS exercise_feedbacks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workout_log_id UUID REFERENCES workout_logs(id) ON DELETE CASCADE,
-    workout_exercise_id UUID REFERENCES workout_exercises(id),
-    weight_used NUMERIC(5,2),
-    reps_performed INT,
-    video_url TEXT,
-    video_status video_status DEFAULT 'pending',
-    coach_video_comment TEXT,
-    skipped BOOLEAN DEFAULT false,
-    skip_reason TEXT,
-    student_note TEXT
-);
-
--- ---------------------------------------------------------------------
--- Migrações aditivas (idempotentes) — DEVEM vir ANTES dos índices, para
--- que bancos já existentes ganhem as colunas novas antes de indexá-las.
--- ---------------------------------------------------------------------
-ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(40);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS muscle_group VARCHAR(40);
-ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS target_weight NUMERIC(6,2);
-ALTER TABLE workout_exercises ADD COLUMN IF NOT EXISTS rest_after_seconds INT;
-ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skipped BOOLEAN DEFAULT false;
-ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS skip_reason TEXT;
-ALTER TABLE exercise_feedbacks ADD COLUMN IF NOT EXISTS student_note TEXT;
-ALTER TABLE workout_logs ADD COLUMN IF NOT EXISTS pump_photo_url TEXT;
-
--- ---------------------------------------------------------------------
--- Índices úteis para o painel/consultas do demo
--- ---------------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_training_plans_student ON training_plans(student_id);
-CREATE INDEX IF NOT EXISTS idx_workouts_plan          ON workouts(training_plan_id);
-CREATE INDEX IF NOT EXISTS idx_workout_exercises_wk   ON workout_exercises(workout_id);
-CREATE INDEX IF NOT EXISTS idx_workout_logs_student   ON workout_logs(student_id);
-CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_log ON exercise_feedbacks(workout_log_id);
-CREATE INDEX IF NOT EXISTS idx_exercise_feedbacks_status ON exercise_feedbacks(video_status);
-CREATE INDEX IF NOT EXISTS idx_exercise_catalog_group ON exercise_catalog(muscle_group);
-CREATE INDEX IF NOT EXISTS idx_workout_exercises_group ON workout_exercises(muscle_group);
+CREATE INDEX IF NOT EXISTS whatsapp_queue_week_idx ON whatsapp_queue (week_start DESC, status);

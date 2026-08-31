@@ -1,103 +1,97 @@
-"use client";
+import Link from "next/link";
+import CopyButton from "@/components/CopyButton";
+import NewStudentForm from "@/components/NewStudentForm";
+import { Card, EmptyState, PageTitle, StatusBadge } from "@/components/ui";
+import { formatDate } from "@/server/dates";
+import { studentSummaries } from "@/server/queries";
+import { checkinLink } from "@/server/whatsapp";
 
-import { useState } from "react";
-import { apiSend } from "@/lib/api";
-import CoachShell from "@/components/CoachShell";
-import { StudentGrid } from "@/components/StudentGrid";
+export const dynamic = "force-dynamic";
 
-function AddStudentForm({ onAdded }: { onAdded: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [ig, setIg] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
-
-  async function save() {
-    setErr(null);
-    if (!name.trim() || !email.trim()) {
-      setErr("Informe nome e e-mail.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await apiSend("/api/students", "POST", {
-        name,
-        email,
-        instagram_handle: ig || null,
-      });
-      setOk(true);
-      setName("");
-      setEmail("");
-      setIg("");
-      onAdded();
-      setTimeout(() => setOk(false), 2500);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Falha ao adicionar.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-red-500"
-      >
-        ➕ Adicionar aluno
-      </button>
-    );
-  }
+export default async function StudentsPage() {
+  const students = await studentSummaries();
+  const active = students.filter((s) => s.status === "ativo").length;
 
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold">➕ Novo aluno</h3>
-        <button onClick={() => setOpen(false)} className="text-xs text-neutral-500 hover:text-white">
-          fechar
-        </button>
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" className="rounded-md border border-neutral-800 bg-black px-2 py-2 text-sm focus:border-neutral-500 focus:outline-none" />
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@aluno.com" className="rounded-md border border-neutral-800 bg-black px-2 py-2 text-sm focus:border-neutral-500 focus:outline-none" />
-        <input value={ig} onChange={(e) => setIg(e.target.value)} placeholder="@instagram (opcional)" className="rounded-md border border-neutral-800 bg-black px-2 py-2 text-sm focus:border-neutral-500 focus:outline-none" />
-      </div>
-      <p className="mt-2 text-[11px] text-neutral-500">
-        Senha inicial: <code className="text-neutral-300">teamff123</code> (o aluno troca no 1º acesso).
-      </p>
-      {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
-      {ok && <p className="mt-2 text-xs text-emerald-400">Aluno adicionado ✓</p>}
-      <button
-        onClick={save}
-        disabled={busy}
-        className="mt-3 rounded-lg bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-black hover:bg-neutral-200 disabled:opacity-50"
-      >
-        {busy ? "Salvando…" : "Salvar aluno"}
-      </button>
+    <div className="animate-fade-up">
+      <PageTitle
+        title="Alunos"
+        subtitle={`${students.length} cadastrados · ${active} ativos na consultoria`}
+        action={<NewStudentForm />}
+      />
+
+      {students.length === 0 ? (
+        <EmptyState
+          title="Nenhum aluno cadastrado"
+          description="Cadastre os alunos ativos da consultoria para começar a receber os check-ins semanais. Você também pode importar a base do Google Forms."
+          action={
+            <Link
+              href="/coach/importar"
+              className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-neutral-300 hover:text-white"
+            >
+              Importar do Google Forms
+            </Link>
+          }
+        />
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-neutral-900 text-[10px] uppercase tracking-[0.2em] text-neutral-500">
+                <tr>
+                  <th className="px-5 py-3 font-bold">Aluno</th>
+                  <th className="px-5 py-3 font-bold">Desde</th>
+                  <th className="px-5 py-3 font-bold">Check-ins</th>
+                  <th className="px-5 py-3 font-bold">Sequência</th>
+                  <th className="px-5 py-3 font-bold">Situação</th>
+                  <th className="px-5 py-3 font-bold">Link do aluno</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-900">
+                {students.map((student) => (
+                  <tr key={student.id} className="transition hover:bg-neutral-900/60">
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/coach/alunos/${student.id}`}
+                        className="font-semibold text-white hover:text-red-400"
+                      >
+                        {student.name}
+                      </Link>
+                      <p className="text-xs text-neutral-600">
+                        {student.goal ?? student.phone ?? "—"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3 text-neutral-500">
+                      {formatDate(student.started_at)}
+                    </td>
+                    <td className="px-5 py-3 tabular-nums text-neutral-300">
+                      {student.total_checkins}
+                    </td>
+                    <td className="px-5 py-3">
+                      {student.streak > 0 ? (
+                        <span className="tabular-nums text-neutral-300">
+                          {student.streak}{" "}
+                          <span className="text-xs text-neutral-600">
+                            {student.streak === 1 ? "semana" : "semanas"}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-neutral-700">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={student.status} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <CopyButton value={checkinLink(student.token)} label="Copiar" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
-  );
-}
-
-export default function AlunosPage() {
-  const [refreshKey, setRefreshKey] = useState(0);
-  return (
-    <CoachShell>
-      <div className="mx-auto max-w-5xl px-5 py-8 md:px-8">
-        <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight">
-          👥 Alunos
-        </h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Toque para ver perfil, treinos e evolução.
-        </p>
-        <div className="mt-5">
-          <AddStudentForm onAdded={() => setRefreshKey((k) => k + 1)} />
-        </div>
-        <div className="mt-6">
-          <StudentGrid key={refreshKey} />
-        </div>
-      </div>
-    </CoachShell>
   );
 }
