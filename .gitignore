@@ -13,3 +13,5 @@ tsconfig.tsbuildinfo
 
 # Proposta comercial (contém valores) — mantida fora do repositório
 proposta-*.pdf
+
+.vercel
